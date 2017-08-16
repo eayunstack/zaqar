@@ -18,6 +18,7 @@
     "topics:delete": "",
     "topics:update": "",
 
+    "messages:consume": "",
     "messages:get_all": "",
     "messages:create": "",
     "messages:get": "",

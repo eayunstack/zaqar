@@ -186,6 +186,23 @@ class ClaimController(storage.Claim):
                           {'$set': new_values},
                           upsert=False, multi=True)
 
+        for _id in ids:
+            msg = msg_ctrl.get(queue, str(_id), project=project)
+            cm = {
+                'cc': msg['consume_count'] + 1,
+                'nc_t': claim_expires,
+                'fc_t': msg.get('first_consumed_at', None)
+            }
+            if not cm['fc_t']:
+                cm['fc_t'] = now
+
+            collection.update({'_id': _id},
+                              {'$set': {
+                               'c_id': objectid.ObjectId(),
+                               'cm': cm}},
+                              upsert=False,
+                              multi=False)
+
         if updated != 0:
             # NOTE(kgriffs): This extra step is necessary because
             # in between having gotten a list of active messages

@@ -123,18 +123,18 @@ def public_endpoints(driver, conf):
          ping.Resource(driver._storage)),
 
         # Subscription Endpoints
-        ('/queues/{queue_name}/subscriptions',
+        ('/topics/{topic_name}/subscriptions',
          subscriptions.CollectionResource(driver._validate,
                                           subscription_controller,
                                           defaults.subscription_ttl,
-                                          queue_controller,
+                                          topic_controller,
                                           conf)),
 
-        ('/queues/{queue_name}/subscriptions/{subscription_id}',
+        ('/topics/{topic_name}/subscriptions/{subscription_id}',
          subscriptions.ItemResource(driver._validate,
                                     subscription_controller)),
 
-        ('/queues/{queue_name}/subscriptions/{subscription_id}/confirm',
+        ('/topics/{topic_name}/subscriptions/{subscription_id}/confirm',
          subscriptions.ConfirmResource(driver._validate,
                                        subscription_controller,
                                        conf)),

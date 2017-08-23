@@ -119,6 +119,19 @@ JSON_HOME = {
                 'accept-post': ['application/json'],
             },
         },
+        'rel/publish_messages': {
+            'href-template': '/v2/topics/{topic_name}/messages',
+            'href-vars': {
+                'topic_name': 'param/topic_name',
+            },
+            'hints': {
+                'allow': ['POST'],
+                'formats': {
+                    'application/json': {},
+                },
+                'accept-post': ['application/json'],
+            },
+        },
         'rel/messages_delete': {
             'href-template': '/v2/queues/{queue_name}/messages{?ids,pop}',
             'href-vars': {

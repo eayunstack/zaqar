@@ -169,6 +169,13 @@ class TopicController(storage.Topic):
     def _delete(self, name, project=None):
         self._collection.remove(_get_scoped_query(name, project))
 
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    @decorators.caches(_topic_exists_key, _TOPIC_CACHE_TTL, lambda v: v)
+    def _exists(self, name, project=None):
+        query = _get_scoped_query(name, project)
+        return self._collection.find_one(query) is not None
+
 
 def _get_scoped_query(name, project):
     return {'p_t': utils.scope_queue_name(name, project)}

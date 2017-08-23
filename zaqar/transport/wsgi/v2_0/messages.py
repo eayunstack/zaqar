@@ -403,3 +403,102 @@ class ItemResource(object):
 
         # Alles guete
         resp.status = falcon.HTTP_204
+
+
+class TopicResource(object):
+
+    __slots__ = (
+        '_message_controller',
+        '_topic_controller',
+        '_validate',
+        '_message_post_spec',
+        '_default_message_ttl'
+    )
+
+    def __init__(self, validate, message_controller, topic_controller,
+                 default_message_ttl, claim_controller=None):
+
+        self._validate = validate
+        self._message_controller = message_controller
+        self._topic_controller = topic_controller
+        self._default_message_ttl = default_message_ttl
+        self._message_post_spec = (
+            ('ttl', int, self._default_message_ttl),
+            ('body', '*', None),
+        )
+
+    @decorators.TransportLog("Messages publish")
+    @acl.enforce("messages:publish")
+    def on_post(self, req, resp, project_id, topic_name):
+        client_uuid = wsgi_helpers.get_client_uuid(req)
+        try:
+            topic_meta = None
+            try:
+                topic_meta = self._topic_controller.get_metadata(topic_name,
+                                                                 project_id)
+            except storage_errors.DoesNotExist as ex:
+                self._validate.identification(topic_name, project_id)
+                self._topic_controller.create(topic_name, project=project_id)
+                topic_meta = {}
+            topic_max_msg_size = topic_meta.get('_max_messages_post_size',
+                                                None)
+            topic_default_ttl = topic_meta.get('_default_message_ttl', None)
+            if topic_default_ttl:
+                message_post_spec = (('ttl', int, topic_default_ttl),
+                                     ('body', '*', None),
+                                     ('tags', list, []),)
+            else:
+                message_post_spec = (('ttl', int, self._default_message_ttl),
+                                     ('body', '*', None),
+                                     ('tags', list, []),)
+            # Place JSON size restriction before parsing
+            self._validate.message_length(req.content_length,
+                                          max_msg_post_size=topic_max_msg_size)
+        except validation.ValidationFailed as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPBadRequestAPI(six.text_type(ex))
+
+        # Deserialize and validate the incoming messages
+        document = wsgi_utils.deserialize(req.stream, req.content_length)
+
+        if 'messages' not in document:
+            description = _(u'No messages were found in the request body.')
+            raise wsgi_errors.HTTPBadRequestAPI(description)
+
+        messages = wsgi_utils.sanitize(document['messages'],
+                                       message_post_spec,
+                                       doctype=wsgi_utils.JSONArray)
+
+        try:
+            message_ids = self._message_controller.publish(
+                topic_name,
+                messages=messages,
+                project=project_id,
+                client_uuid=client_uuid)
+
+        except validation.ValidationFailed as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPBadRequestAPI(six.text_type(ex))
+
+        except storage_errors.DoesNotExist as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPNotFound(six.text_type(ex))
+
+        except storage_errors.MessageConflict as ex:
+            LOG.exception(ex)
+            description = _(u'No messages could be entopicd.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Messages could not be entopicd.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        # Prepare the response
+        ids_value = ','.join(message_ids)
+        resp.location = req.path + '?ids=' + ids_value
+
+        hrefs = [req.path + '/' + id for id in message_ids]
+        body = {'resources': hrefs}
+        resp.body = utils.to_json(body)
+        resp.status = falcon.HTTP_201

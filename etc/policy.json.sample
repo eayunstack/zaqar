@@ -19,6 +19,7 @@
     "topics:update": "",
 
     "messages:consume": "",
+    "messages:publish": "",
     "messages:get_all": "",
     "messages:create": "",
     "messages:get": "",

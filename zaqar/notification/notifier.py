@@ -48,7 +48,7 @@ class NotifierDriver(object):
         self.executor = futurist.ThreadPoolExecutor(max_workers=max_workers)
         self.require_confirmation = kwargs.get('require_confirmation', False)
 
-    def post(self, queue_name, messages, client_uuid, project=None):
+    def publish(self, topic_name, messages, client_uuid, project=None):
         """Send messages to the subscribers."""
         if self.subscription_controller:
             if not isinstance(self.subscription_controller,
@@ -56,7 +56,7 @@ class NotifierDriver(object):
                 marker = None
                 while True:
                     subscribers = self.subscription_controller.list(
-                        queue_name, project, marker=marker)
+                        topic_name, project, marker=marker)
                     for sub in next(subscribers):
                         LOG.debug("Notifying subscriber %r" % (sub,))
                         s_type = urllib_parse.urlparse(
@@ -70,8 +70,20 @@ class NotifierDriver(object):
                             LOG.info(_LI('The subscriber %s is not '
                                          'confirmed.'), sub['subscriber'])
                             continue
-                        self._execute(s_type, sub, messages,
+
+                        # Note(yangzhenyu): If the subscriber has tags and it
+                        # doesn't contain the message tags, We should not allow
+                        # the message be subscribed.
+                        sub_tags = sub.get('options', {}).get('tags', [])
+                        publish_msgs = []
+                        for msg in messages:
+                            msg_tags = msg.get('tags', [])
+                            if not sub_tags or list(set(sub_tags).intersection(set(msg_tags))):
+                                msg['Message_Type'] = MessageType.Notification.name
+                                publish_msgs.append(msg)
+                        self._execute(s_type, sub, publish_msgs,
                                       client_uuid=client_uuid, project=project)
+
                     marker = next(subscribers)
                     if not marker:
                         break

@@ -125,6 +125,14 @@ class DataDriver(storage.DataDriverBase):
             driver.gc()
 
     @decorators.lazy_property(write=False)
+    def topic_controller(self):
+        controller = TopicController(self._pool_catalog)
+        if self.conf.profiler.enabled:
+            return profiler.trace_cls("pooling_topic_controller")(controller)
+        else:
+            return controller
+
+    @decorators.lazy_property(write=False)
     def queue_controller(self):
         controller = QueueController(self._pool_catalog)
         if self.conf.profiler.enabled:
@@ -268,6 +276,49 @@ class QueueController(storage.Queue):
         if control:
             return control.stats(name, project=project)
         raise errors.QueueDoesNotExist(name, project)
+
+
+class TopicController(storage.Topic):
+    """Routes operations to a topic controller in the appropriate pool.
+
+    :param pool_catalog: a catalog of available pools
+    :type pool_catalog: topics.pooling.base.Catalog
+    """
+
+    def __init__(self, pool_catalog):
+        super(TopicController, self).__init__(None)
+        self._pool_catalog = pool_catalog
+        self._get_controller = self._pool_catalog.get_topic_controller
+
+    def _list(self, project=None, marker=None,
+              limit=storage.DEFAULT_TOPICS_PER_PAGE, detailed=False):
+
+        def all_pages():
+            pool = self._pool_catalog.get_default_pool()
+            if pool is None:
+                raise errors.NoPoolFound()
+            yield next(pool.topic_controller.list(
+                project=project,
+                marker=marker,
+                limit=limit,
+                detailed=detailed))
+
+        # make a heap compared with 'name'
+        ls = heapq.merge(*[
+            utils.keyify('name', page)
+            for page in all_pages()
+        ])
+
+        marker_name = {}
+
+        # limit the iterator and strip out the comparison wrapper
+        def it():
+            for topic_cmp in itertools.islice(ls, limit):
+                marker_name['next'] = topic_cmp.obj['name']
+                yield topic_cmp.obj
+
+        yield it()
+        yield marker_name and marker_name['next']
 
 
 class MessageController(storage.Message):

@@ -12,6 +12,8 @@
     "queues:share": "",
     "queues:purge": "",
 
+    "topics:get_all": "",
+
     "messages:get_all": "",
     "messages:create": "",
     "messages:get": "",

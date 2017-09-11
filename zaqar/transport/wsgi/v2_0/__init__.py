@@ -22,6 +22,7 @@ from zaqar.transport.wsgi.v2_0 import ping
 from zaqar.transport.wsgi.v2_0 import pools
 from zaqar.transport.wsgi.v2_0 import purge
 from zaqar.transport.wsgi.v2_0 import queues
+from zaqar.transport.wsgi.v2_0 import topics
 from zaqar.transport.wsgi.v2_0 import stats
 from zaqar.transport.wsgi.v2_0 import subscriptions
 from zaqar.transport.wsgi.v2_0 import urls
@@ -49,6 +50,7 @@ VERSION = {
 @decorators.api_version_manager(VERSION)
 def public_endpoints(driver, conf):
     queue_controller = driver._storage.queue_controller
+    topic_controller = driver._storage.topic_controller
     message_controller = driver._storage.message_controller
     claim_controller = driver._storage.claim_controller
     subscription_controller = driver._storage.subscription_controller
@@ -72,6 +74,12 @@ def public_endpoints(driver, conf):
          stats.Resource(queue_controller)),
         ('/queues/{queue_name}/purge',
          purge.Resource(driver)),
+
+        # Topics Endpoints
+        ('/topics',
+         topics.CollectionResource(driver._validate,
+                                   topic_controller)),
+
         # Messages Endpoints
         ('/queues/{queue_name}/messages',
          messages.CollectionResource(driver._wsgi_conf,

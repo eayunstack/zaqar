@@ -95,3 +95,19 @@ class TopicController(storage.Topic):
 
         yield utils.HookedCursor(cursor, normalizer)
         yield marker_name and marker_name['next']
+
+    @utils.raises_conn_error
+    def _create(self, name, metadata=None, project=None):
+        try:
+            counter = {'v': 1, 't': 0}
+            now = timeutils.utcnow_ts()
+            scoped_name = utils.scope_queue_name(name, project)
+            self._collection.insert({'p_t': scoped_name,
+                                     'm': metadata or {},
+                                     'c': counter, 'c_t': now,
+                                     'u_t': now})
+
+        except pymongo.errors.DuplicateKeyError:
+            return False
+        else:
+            return True

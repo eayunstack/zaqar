@@ -320,6 +320,18 @@ class TopicController(storage.Topic):
         yield it()
         yield marker_name and marker_name['next']
 
+    def _create(self, name, metadata=None, project=None):
+        flavor = None
+        if isinstance(metadata, dict):
+            flavor = metadata.get('_flavor', None)
+
+        self._pool_catalog.register(name, project=project, flavor=flavor)
+
+        control = self._get_controller(name, project)
+        if not control:
+            raise RuntimeError('Failed to register topic')
+        return control.create(name, metadata=metadata, project=project)
+
 
 class MessageController(storage.Message):
     """Routes operations to a message controller in the appropriate pool.

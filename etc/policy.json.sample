@@ -15,6 +15,7 @@
     "topics:get_all": "",
     "topics:create": "",
     "topics:get": "",
+    "topics:delete": "",
 
     "messages:get_all": "",
     "messages:create": "",

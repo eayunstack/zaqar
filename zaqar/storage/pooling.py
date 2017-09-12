@@ -344,6 +344,14 @@ class TopicController(storage.Topic):
             raise RuntimeError('Failed to register topic')
         return control.create(name, metadata=metadata, project=project)
 
+    def _delete(self, name, project=None):
+        control = self._get_controller(name, project)
+        if control:
+            self._pool_catalog.deregister(name, project)
+            ret = control.delete(name, project)
+            return ret
+
+        return None
 
 class MessageController(storage.Message):
     """Routes operations to a message controller in the appropriate pool.

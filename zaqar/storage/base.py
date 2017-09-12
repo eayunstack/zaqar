@@ -466,6 +466,16 @@ class Topic(ControllerBase):
         """
         return self._get(name, project)
 
+    def delete(self, name, project=None):
+        """Base method for deleting a topic.
+
+        :param name: The topic name
+        :param project: Project id
+        """
+        return self._delete(name, project)
+
+    _delete = abc.abstractmethod(lambda x: None)
+
 
 @six.add_metaclass(abc.ABCMeta)
 class Message(ControllerBase):

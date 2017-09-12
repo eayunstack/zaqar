@@ -33,6 +33,11 @@ from zaqar.storage.mongodb import utils
 
 LOG = logging.getLogger(__name__)
 
+_TOPIC_CACHE_TTL = 5
+_TOPIC_CACHE_PREFIX = 'topiccontroller:'
+
+def _topic_exists_key(topic, project=None):
+    return _TOPIC_CACHE_PREFIX + 'exists:' + str(project) + '/' + topic
 
 class TopicController(storage.Topic):
     """Implements topic resource operations using MongoDB.
@@ -68,6 +73,13 @@ class TopicController(storage.Topic):
     # ----------------------------------------------------------------------
     # Interface
     # ----------------------------------------------------------------------
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    @decorators.caches(_topic_exists_key, _TOPIC_CACHE_TTL, lambda v: v)
+    def _exists(self, name, project=None):
+        query = _get_scoped_query(name, project)
+        return self._collection.find_one(query) is not None
 
     def _get(self, name, project=None):
         try:
@@ -137,6 +149,12 @@ class TopicController(storage.Topic):
             return False
         else:
             return True
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    @_exists.purges
+    def _delete(self, name, project=None):
+        self._collection.remove(_get_scoped_query(name, project))
 
 
 def _get_scoped_query(name, project):

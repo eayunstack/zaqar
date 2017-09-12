@@ -97,6 +97,22 @@ class ItemResource(object):
         resp.status = falcon.HTTP_201 if created else falcon.HTTP_204
         resp.location = req.path
 
+    @decorators.TransportLog("Topics item")
+    @acl.enforce("topics:delete")
+    def on_delete(self, req, resp, project_id, topic_name):
+        LOG.debug(u'Topic item DELETE - topic: %(topic)s, '
+                  u'project: %(project)s',
+                  {'topic': topic_name, 'project': project_id})
+        try:
+            self._topic_controller.delete(topic_name, project=project_id)
+
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Topic could not be deleted.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        resp.status = falcon.HTTP_204
+
 
 class CollectionResource(object):
 

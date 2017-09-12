@@ -19,6 +19,7 @@ import six
 
 from zaqar.common import decorators
 from zaqar.i18n import _
+from zaqar.storage import errors as storage_errors
 from zaqar.transport import acl
 from zaqar.transport import utils
 from zaqar.transport import validation
@@ -39,6 +40,32 @@ class ItemResource(object):
         self._message_controller = message_controller
         self._reserved_metadata = ['max_messages_post_size',
                                    'default_message_ttl']
+
+    def _get_reserved_metadata(self):
+        reserved_metadata = {
+            '_%s' % meta:
+                self._validate.get_limit_conf_value(meta)
+            for meta in self._reserved_metadata
+        }
+        return reserved_metadata
+
+    @decorators.TransportLog("Topics item")
+    @acl.enforce("topics:get")
+    def on_get(self, req, resp, project_id, topic_name):
+        try:
+            resp_dict = self._topic_controller.get(topic_name,
+                                                   project=project_id)
+        except storage_errors.DoesNotExist as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPNotFound(six.text_type(ex))
+
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Topic metadata could not be retrieved.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        resp.body = utils.to_json(resp_dict)
+        # status defaults to 200
 
     @decorators.TransportLog("Topics item")
     @acl.enforce("topics:create")

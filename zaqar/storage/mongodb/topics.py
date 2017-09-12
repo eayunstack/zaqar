@@ -69,6 +69,32 @@ class TopicController(storage.Topic):
     # Interface
     # ----------------------------------------------------------------------
 
+    def _get(self, name, project=None):
+        try:
+            return self.get_metadata(name, project, detailed=True)
+        except errors.TopicDoesNotExist:
+            return {}
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    def get_metadata(self, name, project=None, detailed=None):
+        topic = self._collection.find_one(_get_scoped_query(name, project),
+                                          projection={'m': 1, '_id': 0,
+                                                      'p_t': 1,
+                                                      'c_t':1, 'u_t':1,})
+        if topic is None:
+            raise errors.TopicDoesNotExist(name, project)
+        if detailed:
+            return {'topic': {
+                        'metadata': topic.get('m', {}),
+                        'name': utils.descope_queue_name(topic['p_t']),
+                        'created_at': topic.get('c_t', None),
+                        'updated_at': topic.get('u_t', None)
+                        }
+                    }
+
+        return topic.get('m', {})
+
     def _list(self, project=None, marker=None,
               limit=storage.DEFAULT_TOPICS_PER_PAGE, detailed=False):
 
@@ -111,3 +137,7 @@ class TopicController(storage.Topic):
             return False
         else:
             return True
+
+
+def _get_scoped_query(name, project):
+    return {'p_t': utils.scope_queue_name(name, project)}

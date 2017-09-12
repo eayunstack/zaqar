@@ -455,6 +455,17 @@ class Topic(ControllerBase):
 
     _create = abc.abstractmethod(lambda x: None)
 
+    def get(self, name, project=None):
+        """Base method for topic metadata retrieval.
+
+        :param name: The topic name
+        :param project: Project id
+
+        :returns: Dictionary containing topic metadata
+        :raises: DoesNotExist
+        """
+        return self._get(name, project)
+
 
 @six.add_metaclass(abc.ABCMeta)
 class Message(ControllerBase):

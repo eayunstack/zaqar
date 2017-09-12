@@ -290,6 +290,18 @@ class TopicController(storage.Topic):
         self._pool_catalog = pool_catalog
         self._get_controller = self._pool_catalog.get_topic_controller
 
+    def _get(self, name, project=None):
+        try:
+            return self.get_metadata(name, project)
+        except errors.TopicDoesNotExist:
+            return {}
+
+    def get_metadata(self, name, project=None):
+        control = self._get_controller(name, project)
+        if control:
+            return control.get_metadata(name, project=project)
+        raise errors.TopicDoesNotExist(name, project)
+
     def _list(self, project=None, marker=None,
               limit=storage.DEFAULT_TOPICS_PER_PAGE, detailed=False):
 

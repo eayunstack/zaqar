@@ -72,6 +72,14 @@ class ClaimConflict(Conflict):
         super(ClaimConflict, self).__init__(queue=queue, project=project)
 
 
+class TopicDoesNotExist(DoesNotExist):
+
+    msg_format = u'Topic {name} does not exist for project {project}'
+
+    def __init__(self, name, project):
+        super(TopicDoesNotExist, self).__init__(name=name, project=project)
+
+
 class QueueDoesNotExist(DoesNotExist):
 
     msg_format = u'Queue {name} does not exist for project {project}'

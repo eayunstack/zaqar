@@ -79,6 +79,10 @@ def public_endpoints(driver, conf):
         ('/topics',
          topics.CollectionResource(driver._validate,
                                    topic_controller)),
+        ('/topics/{topic_name}',
+         topics.ItemResource(driver._validate,
+                             topic_controller,
+                             message_controller)),
 
         # Messages Endpoints
         ('/queues/{queue_name}/messages',

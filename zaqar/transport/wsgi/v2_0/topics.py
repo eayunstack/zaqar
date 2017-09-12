@@ -23,8 +23,52 @@ from zaqar.transport import acl
 from zaqar.transport import utils
 from zaqar.transport import validation
 from zaqar.transport.wsgi import errors as wsgi_errors
+from zaqar.transport.wsgi import utils as wsgi_utils
 
 LOG = logging.getLogger(__name__)
+
+
+class ItemResource(object):
+
+    __slots__ = ('_validate', '_topic_controller', '_message_controller',
+                 '_reserved_metadata')
+
+    def __init__(self, validate, topic_controller, message_controller):
+        self._validate = validate
+        self._topic_controller = topic_controller
+        self._message_controller = message_controller
+        self._reserved_metadata = ['max_messages_post_size',
+                                   'default_message_ttl']
+
+    @decorators.TransportLog("Topics item")
+    @acl.enforce("topics:create")
+    def on_put(self, req, resp, project_id, topic_name):
+        try:
+            # Deserialize topic metadata
+            metadata = {}
+            if req.content_length:
+                document = wsgi_utils.deserialize(req.stream,
+                                                  req.content_length)
+                metadata = wsgi_utils.sanitize(document, spec=None)
+            self._validate.queue_metadata_putting(metadata)
+        except validation.ValidationFailed as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPBadRequestAPI(six.text_type(ex))
+
+        try:
+            for meta in self._reserved_metadata:
+                if meta not in metadata:
+                    metadata[meta] = self._validate.get_limit_conf_value(meta)
+            created = self._topic_controller.create(topic_name,
+                                                    metadata=metadata,
+                                                    project=project_id)
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Topic could not be created.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        resp.status = falcon.HTTP_201 if created else falcon.HTTP_204
+        resp.location = req.path
 
 
 class CollectionResource(object):

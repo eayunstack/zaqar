@@ -13,6 +13,7 @@
     "queues:purge": "",
 
     "topics:get_all": "",
+    "topics:create": "",
 
     "messages:get_all": "",
     "messages:create": "",

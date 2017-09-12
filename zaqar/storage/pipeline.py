@@ -137,7 +137,7 @@ class DataDriver(base.DataDriverBase):
 
     def _health(self):
         return self._storage._health()
-    
+
     @decorators.lazy_property(write=False)
     def topic_controller(self):
         stages = _get_builtin_entry_points('topic', self._storage,

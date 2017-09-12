@@ -85,7 +85,8 @@ class ItemResource(object):
         try:
             for meta in self._reserved_metadata:
                 if meta not in metadata:
-                    metadata[meta] = self._validate.get_limit_conf_value(meta)
+                    metadata['_%s' % meta] = \
+                        self._validate.get_limit_conf_value(meta)
             created = self._topic_controller.create(topic_name,
                                                     metadata=metadata,
                                                     project=project_id)
@@ -96,6 +97,89 @@ class ItemResource(object):
 
         resp.status = falcon.HTTP_201 if created else falcon.HTTP_204
         resp.location = req.path
+
+    @decorators.TransportLog("Topics item")
+    @acl.enforce("topics:update")
+    def on_patch(self, req, resp, project_id, topic_name):
+        """Allows one to update a topic's metadata.
+
+        This method expects the user to submit a JSON object. There is also
+        strict format checking through the use of
+        jsonschema. Appropriate errors are returned in each case for
+        badly formatted input.
+
+        :returns: HTTP | 200,400,409,503
+        """
+        LOG.debug(u'PATCH topic - name: %s', topic_name)
+
+        # NOTE(flwang): See below link to get more details about draft 10,
+        # tools.ietf.org/html/draft-ietf-appsawg-json-patch-10
+        content_types = {
+            'application/openstack-messaging-v2.0-json-patch': 10,
+        }
+
+        if req.content_type not in content_types:
+            headers = {'Accept-Patch':
+                       ', '.join(sorted(content_types.keys()))}
+            msg = _("Accepted media type for PATCH: %s.")
+            LOG.debug(msg % headers)
+            raise wsgi_errors.HTTPUnsupportedMediaType(msg % headers)
+
+        if req.content_length:
+            try:
+                changes = utils.read_json(req.stream, req.content_length)
+                changes = wsgi_utils.sanitize(changes,
+                                              spec=None, doctype=list)
+            except utils.MalformedJSON as ex:
+                LOG.debug(ex)
+                description = _(u'Request body could not be parsed.')
+                raise wsgi_errors.HTTPBadRequestBody(description)
+
+            except utils.OverflowedJSONInteger as ex:
+                LOG.debug(ex)
+                description = _(u'JSON contains integer that is too large.')
+                raise wsgi_errors.HTTPBadRequestBody(description)
+
+            except Exception as ex:
+                # Error while reading from the network/server
+                LOG.exception(ex)
+                description = _(u'Request body could not be read.')
+                raise wsgi_errors.HTTPServiceUnavailable(description)
+        else:
+            msg = _("PATCH body could not be empty for update.")
+            LOG.debug(msg)
+            raise wsgi_errors.HTTPBadRequestBody(msg)
+
+        try:
+            changes = self._validate.queue_patching(req, changes)
+
+            # NOTE(Eva-i): using 'get_metadata' instead of 'get', so
+            # TopicDoesNotExist error will be thrown in case of non-existent
+            # topic.
+            metadata = self._topic_controller.get_metadata(topic_name,
+                                                           project=project_id)
+            reserved_metadata = self._get_reserved_metadata()
+            for change in changes:
+                change_method_name = '_do_%s' % change['op']
+                change_method = getattr(self, change_method_name)
+                change_method(req, metadata, reserved_metadata, change)
+
+            self._topic_controller.set_metadata(topic_name,
+                                                metadata,
+                                                project_id)
+        except storage_errors.DoesNotExist as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPNotFound(six.text_type(ex))
+        except validation.ValidationFailed as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPBadRequestBody(six.text_type(ex))
+        except wsgi_errors.HTTPConflict as ex:
+            raise ex
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Topic could not be updated.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+        resp.body = utils.to_json(metadata)
 
     @decorators.TransportLog("Topics item")
     @acl.enforce("topics:delete")
@@ -112,6 +196,34 @@ class ItemResource(object):
             raise wsgi_errors.HTTPServiceUnavailable(description)
 
         resp.status = falcon.HTTP_204
+
+    @staticmethod
+    def _do_replace(req, metadata, reserved_metadata, change):
+        path = change['path']
+        path_child = path[1]
+        value = change['value']
+        if path_child in metadata or path_child in reserved_metadata:
+            metadata[path_child] = value
+        else:
+            msg = _("Can't replace non-existent object %s.")
+            raise wsgi_errors.HTTPConflict(msg % path_child)
+
+    @staticmethod
+    def _do_add(req, metadata, reserved_metadata, change):
+        path = change['path']
+        path_child = path[1]
+        value = change['value']
+        metadata[path_child] = value
+
+    @staticmethod
+    def _do_remove(req, metadata, reserved_metadata, change):
+        path = change['path']
+        path_child = path[1]
+        if path_child in metadata:
+            metadata.pop(path_child)
+        elif path_child not in reserved_metadata:
+            msg = _("Can't remove non-existent object %s.")
+            raise wsgi_errors.HTTPConflict(msg % path_child)
 
 
 class CollectionResource(object):

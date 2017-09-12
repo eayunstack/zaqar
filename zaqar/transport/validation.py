@@ -235,7 +235,7 @@ class Validator(object):
 
         path_list = self._decode_json_pointer(path)
         return op, path_list
-    
+
     def topic_listing(self, limit=None, **kwargs):
         """Restrictions involving a list of topics.
 

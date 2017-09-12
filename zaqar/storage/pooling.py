@@ -302,6 +302,13 @@ class TopicController(storage.Topic):
             return control.get_metadata(name, project=project)
         raise errors.TopicDoesNotExist(name, project)
 
+    def set_metadata(self, name, metadata, project=None):
+        control = self._get_controller(name, project)
+        if control:
+            return control.set_metadata(name, metadata=metadata,
+                                        project=project)
+        raise errors.TopicDoesNotExist(name, project)
+
     def _list(self, project=None, marker=None,
               limit=storage.DEFAULT_TOPICS_PER_PAGE, detailed=False):
 
@@ -352,6 +359,7 @@ class TopicController(storage.Topic):
             return ret
 
         return None
+
 
 class MessageController(storage.Message):
     """Routes operations to a message controller in the appropriate pool.

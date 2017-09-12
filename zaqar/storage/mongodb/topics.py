@@ -26,7 +26,7 @@ from oslo_utils import timeutils
 import pymongo.errors
 
 from zaqar.common import decorators
-from zaqar.i18n import _
+
 from zaqar import storage
 from zaqar.storage import errors
 from zaqar.storage.mongodb import utils
@@ -36,8 +36,10 @@ LOG = logging.getLogger(__name__)
 _TOPIC_CACHE_TTL = 5
 _TOPIC_CACHE_PREFIX = 'topiccontroller:'
 
+
 def _topic_exists_key(topic, project=None):
     return _TOPIC_CACHE_PREFIX + 'exists:' + str(project) + '/' + topic
+
 
 class TopicController(storage.Topic):
     """Implements topic resource operations using MongoDB.
@@ -93,19 +95,30 @@ class TopicController(storage.Topic):
         topic = self._collection.find_one(_get_scoped_query(name, project),
                                           projection={'m': 1, '_id': 0,
                                                       'p_t': 1,
-                                                      'c_t':1, 'u_t':1,})
+                                                      'c_t': 1, 'u_t': 1})
         if topic is None:
             raise errors.TopicDoesNotExist(name, project)
         if detailed:
             return {'topic': {
-                        'metadata': topic.get('m', {}),
-                        'name': utils.descope_queue_name(topic['p_t']),
-                        'created_at': topic.get('c_t', None),
-                        'updated_at': topic.get('u_t', None)
-                        }
+                    'metadata': topic.get('m', {}),
+                    'name': utils.descope_queue_name(topic['p_t']),
+                    'created_at': topic.get('c_t', None),
+                    'updated_at': topic.get('u_t', None)}
                     }
 
         return topic.get('m', {})
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    def set_metadata(self, name, metadata, project=None):
+        now = timeutils.utcnow_ts()
+        rst = self._collection.update(_get_scoped_query(name, project),
+                                      {'$set': {'m': metadata, 'u_t': now}},
+                                      multi=False,
+                                      manipulate=False)
+
+        if not rst['updatedExisting']:
+            raise errors.TopicDoesNotExist(name, project)
 
     def _list(self, project=None, marker=None,
               limit=storage.DEFAULT_TOPICS_PER_PAGE, detailed=False):

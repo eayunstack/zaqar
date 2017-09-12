@@ -476,6 +476,16 @@ class Topic(ControllerBase):
 
     _delete = abc.abstractmethod(lambda x: None)
 
+    def set_metadata(self, name, metadata, project=None):
+        """Base method for updating a topic metadata.
+
+        :param name: The topic name
+        :param metadata: topic metadata as a dict
+        :param project: Project id
+        :raises: DoesNotExist
+        """
+        raise NotImplementedError
+
 
 @six.add_metaclass(abc.ABCMeta)
 class Message(ControllerBase):

@@ -83,7 +83,7 @@ class CollectionResource(object):
         if not messages:
             return None
 
-        messages = [wsgi_utils.format_message_v1_1(m, base_path, m['claim_id'])
+        messages = [wsgi_utils.format_message_v2(m, base_path, m['claim_id'])
                     for m in messages]
 
         return {'messages': messages}
@@ -98,6 +98,7 @@ class CollectionResource(object):
         req.get_param_as_int('limit', store=kwargs)
         req.get_param_as_bool('echo', store=kwargs)
         req.get_param_as_bool('include_claimed', store=kwargs)
+        req.get_param_as_bool('include_delayed', store=kwargs)
 
         try:
             self._validate.message_listing(**kwargs)
@@ -131,8 +132,8 @@ class CollectionResource(object):
             # Found some messages, so prepare the response
             kwargs['marker'] = next(results)
             base_path = req.path.rsplit('/', 1)[0]
-            messages = [wsgi_utils.format_message_v1_1(m, base_path,
-                                                       m['claim_id'])
+            messages = [wsgi_utils.format_message_v2(m, base_path,
+                                                     m['claim_id'])
                         for m in messages]
 
         links = []
@@ -356,9 +357,9 @@ class ItemResource(object):
 
         # Prepare response
         message['href'] = req.path
-        message = wsgi_utils.format_message_v1_1(message,
-                                                 req.path.rsplit('/', 2)[0],
-                                                 message['claim_id'])
+        message = wsgi_utils.format_message_v2(message,
+                                               req.path.rsplit('/', 2)[0],
+                                               message['claim_id'])
 
         resp.body = utils.to_json(message)
         # status defaults to 200

@@ -286,6 +286,11 @@ class MessageController(storage.Message):
         if marker is not None:
             query['k'] = {'$gt': marker}
 
+        collection = self._collection(queue_name, project)
+
+        if not projection:
+            projection = {'b': 0}
+
         if not include_claimed:
             # Only include messages that are not part of
             # any claim, or are part of an expired claim.
@@ -523,7 +528,8 @@ class MessageController(storage.Message):
 
     def list(self, queue_name, project=None, marker=None,
              limit=storage.DEFAULT_MESSAGES_PER_PAGE,
-             echo=False, client_uuid=None, include_claimed=False):
+             echo=False, client_uuid=None,
+             include_claimed=False, include_delayed=False):
 
         if marker is not None:
             try:
@@ -534,6 +540,7 @@ class MessageController(storage.Message):
         messages = self._list(queue_name, project=project, marker=marker,
                               client_uuid=client_uuid, echo=echo,
                               include_claimed=include_claimed,
+                              include_delayed=include_delayed,
                               limit=limit)
 
         marker_id = {}
@@ -580,7 +587,8 @@ class MessageController(storage.Message):
         }
 
         collection = self._collection(queue_name, project)
-        message = list(collection.find(query).limit(1).hint(ID_INDEX_FIELDS))
+        message = list(collection.find(query, projection={'b': 0}).
+                       limit(1).hint(ID_INDEX_FIELDS))
 
         if not message:
             raise errors.MessageDoesNotExist(message_id, queue_name,
@@ -607,7 +615,8 @@ class MessageController(storage.Message):
 
         # NOTE(flaper87): Should this query
         # be sorted?
-        messages = collection.find(query).hint(ID_INDEX_FIELDS)
+        messages = collection.find(query, projection={'b': 0}).\
+            hint(ID_INDEX_FIELDS)
 
         def denormalizer(msg):
             return _basic_message(msg, now)
@@ -989,12 +998,22 @@ def _is_claimed(msg, now):
 def _basic_message(msg, now):
     oid = msg['_id']
     age = now - utils.oid_ts(oid)
+    status = 'active'
+    status_end = None
+    if now < msg['c']['e']:
+        status = 'inactive'
+        status_end = msg['c']['e']
+    elif now < msg['d']['e']:
+        status = 'delayed'
+        status_end = msg['d']['e']
 
     return {
         'id': str(oid),
         'age': int(age),
         'ttl': msg['t'],
-        'body': msg['b'],
+        'body': msg.get('b', None),
+        'status': status,
+        'status_end': status_end,
         'claim_id': str(msg['c']['id']) if msg['c']['id'] else None
     }
 

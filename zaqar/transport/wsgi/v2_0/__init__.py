@@ -101,6 +101,8 @@ def public_endpoints(driver, conf):
                                     message_controller,
                                     queue_controller,
                                     claim_controller)),
+        ('/queues/{queue_name}/consume/{handle}',
+         consume.ItemResource(message_controller)),
 
         # Claims Endpoints
         ('/queues/{queue_name}/claims',

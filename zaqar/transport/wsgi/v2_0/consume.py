@@ -109,3 +109,68 @@ class CollectionResource(object):
             resp.status = falcon.HTTP_201
         else:
             resp.status = falcon.HTTP_204
+
+    @decorators.TransportLog("Messages consume item")
+    @acl.enforce("messages:consume_delete_all")
+    def on_delete(self, req, resp, project_id, queue_name):
+        ids = req.get_param_as_list('ids')
+        try:
+            self._validate.message_deletion(ids)
+        except validation.ValidationFailed as ex:
+            LOG.debug(ex)
+            raise wsgi_errors.HTTPBadRequestAPI(six.text_type(ex))
+
+        if ids:
+            resp.status, resp.body = self. \
+                _delete_messages_by_consume_id(queue_name, ids,
+                                               project_id)
+
+    def _delete_messages_by_consume_id(self, queue_name, ids, project_id):
+        try:
+            res = self._message_controller. \
+                bulk_consume_delete(queue_name,
+                                    consume_ids=ids,
+                                    project=project_id)
+
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Messages could not be deleted.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+        if res:
+            return falcon.HTTP_200, utils.to_json(res)
+        else:
+            return falcon.HTTP_204, None
+
+
+class ItemResource(object):
+
+    __slots__ = '_message_controller'
+
+    def __init__(self, message_controller):
+        self._message_controller = message_controller
+
+    @decorators.TransportLog("Messages consume item")
+    @acl.enforce("messages:consume_delete")
+    def on_delete(self, req, resp, project_id, queue_name, handle):
+        error_title = _(u'Unable to delete')
+
+        try:
+            self._message_controller.consume_delete(
+                queue_name,
+                handle,
+                project=project_id)
+        except storage_errors.MessageClaimedExpired as ex:
+            LOG.debug(ex)
+            description = _(u'Delete message failed, the consume handle is expired.')
+            raise falcon.HTTPConflict(error_title, description)
+        except storage_errors.MessageHandleInvalid as ex:
+            LOG.debug(ex)
+            description = _(u'Delete message failed, the consume handle is invalid.')
+            raise wsgi_errors.HTTPNotFound(description)
+        except Exception as ex:
+            LOG.exception(ex)
+            description = _(u'Message could not be deleted.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        # Alles guete
+        resp.status = falcon.HTTP_204

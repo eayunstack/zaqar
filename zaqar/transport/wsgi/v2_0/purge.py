@@ -80,3 +80,18 @@ class Resource(object):
             raise wsgi_errors.HTTPBadRequestAPI(str(err))
 
         resp.status = falcon.HTTP_204
+
+    @decorators.TransportLog("Queues item")
+    @acl.enforce("queues:purge")
+    def on_delete(self, req, resp, project_id, queue_name):
+        LOG.debug(u'Delete all message of the queue - queue: %(queue)s, '
+                  u'project: %(project)s',
+                  {'queue': queue_name, 'project': project_id})
+        try:
+            self._message_ctrl._purge_queue(queue_name, project_id)
+        except Exception as ex:
+            LOG.exception(ex)
+            description = (u'Queue could not delete messages.')
+            raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        resp.status = falcon.HTTP_204

@@ -23,6 +23,7 @@ import six
 
 from zaqar.i18n import _
 
+MIN_MESSAGE_DELAY_TTL = 0
 MIN_MESSAGE_TTL = 60
 MIN_CLAIM_TTL = 60
 MIN_CLAIM_GRACE = 60
@@ -69,6 +70,11 @@ _TRANSPORT_LIMITS_OPTIONS = (
                deprecated_name='message_ttl_max',
                deprecated_group='limits:transport',
                help='Maximum amount of time a message will be available.'),
+
+    cfg.IntOpt('max_message_delay_ttl', default=604800,
+               deprecated_name='max_message_delay_ttl',
+               deprecated_group='limits:transport',
+               help='Maximum delayed consumption time.'),
 
     cfg.IntOpt('max_claim_ttl', default=43200,
                deprecated_name='claim_ttl_max',
@@ -330,6 +336,20 @@ class Validator(object):
                 raise ValidationFailed(
                     msg, self._limits_conf.max_message_ttl, MIN_MESSAGE_TTL)
 
+        queue_delay_ttl = queue_metadata.get('delay_ttl', None)
+        if queue_delay_ttl and not isinstance(queue_delay_ttl, int):
+            msg = _(u'delay_ttl must be integer.')
+            raise ValidationFailed(msg)
+
+        if queue_delay_ttl:
+            if not (MIN_MESSAGE_DELAY_TTL <= queue_delay_ttl <=
+                    self._limits_conf.max_message_delay_ttl):
+                msg = _(u'delay_ttl can not exceed {0} '
+                        'seconds, and must be at least {1} seconds long.')
+                raise ValidationFailed(
+                    msg, self._limits_conf.max_message_delay_ttl,
+                    MIN_MESSAGE_DELAY_TTL)
+
         queue_max_msg_size = queue_metadata.get('_max_messages_post_size',
                                                 None)
         if queue_max_msg_size and not isinstance(queue_max_msg_size, int):
@@ -418,6 +438,17 @@ class Validator(object):
 
             raise ValidationFailed(
                 msg, self._limits_conf.max_message_ttl, MIN_MESSAGE_TTL)
+
+        delay_ttl = message['delay_ttl']
+
+        if not (MIN_MESSAGE_DELAY_TTL <= delay_ttl <=
+                self._limits_conf.max_message_delay_ttl):
+            msg = _(u'The Delay TTL for a message may not exceed {0} seconds,'
+                    'and must be at least {1} seconds long.')
+
+            raise ValidationFailed(
+                msg, self._limits_conf.max_message_delay_ttl,
+                MIN_MESSAGE_DELAY_TTL)
 
     def message_listing(self, limit=None, **kwargs):
         """Restrictions involving a list of messages.

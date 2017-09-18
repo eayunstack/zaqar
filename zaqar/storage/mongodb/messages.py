@@ -231,7 +231,8 @@ class MessageController(storage.Message):
 
     def _list(self, queue_name, project=None, marker=None,
               echo=False, client_uuid=None, projection=None,
-              include_claimed=False, sort=1, limit=None):
+              include_claimed=False, include_delayed=False,
+              sort=1, limit=None):
         """Message document listing helper.
 
         :param queue_name: Name of the queue to list
@@ -248,6 +249,8 @@ class MessageController(storage.Message):
             documents
         :param include_claimed: (Default False) Whether to include
             claimed messages, not just active ones
+        :param include_delayed: (Default False) Whether to include
+            delayed messages, not just active ones
         :param sort: (Default 1) Sort order for the listing. Pass 1 for
             ascending (oldest message first), or -1 for descending (newest
             message first).
@@ -283,12 +286,15 @@ class MessageController(storage.Message):
         if marker is not None:
             query['k'] = {'$gt': marker}
 
-        collection = self._collection(queue_name, project)
-
         if not include_claimed:
             # Only include messages that are not part of
             # any claim, or are part of an expired claim.
             query['c.e'] = {'$lte': now}
+
+        if not include_delayed:
+            query['d.e'] = {'$lte': now}
+
+        collection = self._collection(queue_name, project)
 
         # Construct the request
         cursor = collection.find(query,
@@ -343,7 +349,7 @@ class MessageController(storage.Message):
         return self._list(queue_name, project=project, marker=marker,
                           echo=echo, client_uuid=client_uuid,
                           projection=projection, include_claimed=False,
-                          limit=limit)
+                          include_delayed=False, limit=limit)
 
     def _claimed(self, queue_name, claim_id,
                  expires=None, limit=None, project=None):
@@ -527,7 +533,8 @@ class MessageController(storage.Message):
 
         messages = self._list(queue_name, project=project, marker=marker,
                               client_uuid=client_uuid, echo=echo,
-                              include_claimed=include_claimed, limit=limit)
+                              include_claimed=include_claimed,
+                              limit=limit)
 
         marker_id = {}
 
@@ -641,6 +648,8 @@ class MessageController(storage.Message):
                 'b': message['body'] if 'body' in message else {},
                 'k': next_marker + index,
                 'tx': None,
+                'd': {'e': now + message['delay_ttl'],
+                      't': message['delay_ttl']},
             }
 
             for index, message in enumerate(messages)

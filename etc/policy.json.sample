@@ -12,6 +12,12 @@
     "queues:share": "",
     "queues:purge": "",
 
+    "topics:get_all": "",
+    "topics:create": "",
+    "topics:get": "",
+    "topics:delete": "",
+    "topics:update": "",
+
     "messages:get_all": "",
     "messages:create": "",
     "messages:get": "",

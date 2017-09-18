@@ -30,6 +30,10 @@ MIN_SUBSCRIPTION_TTL = 60
 _PURGBLE_RESOURCE_TYPES = {'messages', 'subscriptions'}
 
 _TRANSPORT_LIMITS_OPTIONS = (
+    cfg.IntOpt('max_topics_per_page', default=20,
+               deprecated_name='topic_paging_uplimit',
+               deprecated_group='limits:transport',
+               help='Defines the maximum number of topics per page.'),
     cfg.IntOpt('max_queues_per_page', default=20,
                deprecated_name='queue_paging_uplimit',
                deprecated_group='limits:transport',
@@ -231,6 +235,19 @@ class Validator(object):
 
         path_list = self._decode_json_pointer(path)
         return op, path_list
+
+    def topic_listing(self, limit=None, **kwargs):
+        """Restrictions involving a list of topics.
+
+        :param limit: The expected number of topics in the list
+        :param kwargs: Ignored arguments passed to storage API
+        :raises: ValidationFailed if the limit is exceeded
+        """
+
+        uplimit = self._limits_conf.max_topics_per_page
+        if limit is not None and not (0 < limit <= uplimit):
+            msg = _(u'Limit must be at least 1 and no greater than {0}.')
+            raise ValidationFailed(msg, self._limits_conf.max_topics_per_page)
 
     def queue_patching(self, request, changes):
         washed_changes = []

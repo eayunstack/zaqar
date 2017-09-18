@@ -28,6 +28,7 @@ from zaqar.storage.mongodb import flavors
 from zaqar.storage.mongodb import messages
 from zaqar.storage.mongodb import pools
 from zaqar.storage.mongodb import queues
+from zaqar.storage.mongodb import topics
 from zaqar.storage.mongodb import subscriptions
 
 
@@ -37,5 +38,6 @@ FlavorsController = flavors.FlavorsController
 MessageController = messages.MessageController
 FIFOMessageController = messages.FIFOMessageController
 QueueController = queues.QueueController
+TopicController = topics.TopicController
 PoolsController = pools.PoolsController
 SubscriptionController = subscriptions.SubscriptionController

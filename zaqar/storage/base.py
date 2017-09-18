@@ -32,6 +32,7 @@ from zaqar.storage import utils
 
 
 DEFAULT_QUEUES_PER_PAGE = 10
+DEFAULT_TOPICS_PER_PAGE = 10
 DEFAULT_MESSAGES_PER_PAGE = 10
 DEFAULT_POOLS_PER_PAGE = 10
 DEFAULT_SUBSCRIPTIONS_PER_PAGE = 10
@@ -224,6 +225,10 @@ class DataDriverBase(DriverBase):
         pass
 
     @decorators.lazy_property(write=False)
+    def topic_controller(self):
+        return self.control_driver.topic_controller
+
+    @decorators.lazy_property(write=False)
     def queue_controller(self):
         return self.control_driver.queue_controller
 
@@ -279,6 +284,11 @@ class ControlDriverBase(DriverBase):
     @abc.abstractproperty
     def queue_controller(self):
         """Returns the driver's queue controller."""
+        raise NotImplementedError
+
+    @abc.abstractproperty
+    def topic_controller(self):
+        """Returns the driver's topic controller."""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -404,6 +414,77 @@ class Queue(ControllerBase):
         return self._stats(name, project)
 
     _stats = abc.abstractmethod(lambda x: None)
+
+
+@six.add_metaclass(abc.ABCMeta)
+class Topic(ControllerBase):
+    """This class is responsible for managing topics.
+
+    Topic operations include CRUD, monitoring, etc.
+
+    Storage driver implementations of this class should
+    be capable of handling high workloads and huge
+    numbers of topics.
+    """
+
+    def list(self, project=None, marker=None,
+             limit=DEFAULT_TOPICS_PER_PAGE, detailed=False):
+        """Base method for listing topics.
+
+        :param project: Project id
+        :param marker: The last topic name
+        :param limit: (Default 10) Max number of topics to return
+        :param detailed: Whether metadata is included
+
+        :returns: An iterator giving a sequence of topics
+            and the marker of the next page.
+        """
+        return self._list(project, marker, limit, detailed)
+
+    _list = abc.abstractmethod(lambda x: None)
+
+    def create(self, name, metadata=None, project=None):
+        """Base method for topic creation.
+
+        :param name: The topic name
+        :param project: Project id
+        :returns: True if a topic was created and False
+            if it was updated.
+        """
+        return self._create(name, metadata, project)
+
+    _create = abc.abstractmethod(lambda x: None)
+
+    def get(self, name, project=None):
+        """Base method for topic metadata retrieval.
+
+        :param name: The topic name
+        :param project: Project id
+
+        :returns: Dictionary containing topic metadata
+        :raises: DoesNotExist
+        """
+        return self._get(name, project)
+
+    def delete(self, name, project=None):
+        """Base method for deleting a topic.
+
+        :param name: The topic name
+        :param project: Project id
+        """
+        return self._delete(name, project)
+
+    _delete = abc.abstractmethod(lambda x: None)
+
+    def set_metadata(self, name, metadata, project=None):
+        """Base method for updating a topic metadata.
+
+        :param name: The topic name
+        :param metadata: topic metadata as a dict
+        :param project: Project id
+        :raises: DoesNotExist
+        """
+        raise NotImplementedError
 
 
 @six.add_metaclass(abc.ABCMeta)

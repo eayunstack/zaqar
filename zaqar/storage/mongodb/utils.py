@@ -189,7 +189,7 @@ def parse_scoped_project_queue(scoped_name):
     return scoped_name.split('/')
 
 
-def scoped_query(queue, project):
+def scoped_query(queue, project, key=None):
     """Returns a dict usable for querying for scoped project/queues.
 
     :param queue: name of queue to seek
@@ -201,7 +201,8 @@ def scoped_query(queue, project):
     :returns: query to issue
     :rtype: dict
     """
-    key = PROJ_QUEUE_KEY
+    if not key:
+        key = PROJ_QUEUE_KEY
     query = {}
     scoped_name = scope_queue_name(queue, project)
 

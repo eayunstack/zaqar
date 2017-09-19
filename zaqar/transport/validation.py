@@ -23,10 +23,12 @@ import six
 
 from zaqar.i18n import _
 
+
 MIN_MESSAGE_DELAY_TTL = 0
+MIN_MESSAGE_CLAIM_TTL = 1
 MIN_MESSAGE_TTL = 60
-MIN_CLAIM_TTL = 60
-MIN_CLAIM_GRACE = 60
+MIN_CLAIM_TTL = 1
+MIN_CLAIM_GRACE = 0
 MIN_SUBSCRIPTION_TTL = 60
 _PURGBLE_RESOURCE_TYPES = {'messages', 'subscriptions'}
 
@@ -349,6 +351,20 @@ class Validator(object):
                 raise ValidationFailed(
                     msg, self._limits_conf.max_message_delay_ttl,
                     MIN_MESSAGE_DELAY_TTL)
+
+        queue_claim_ttl = queue_metadata.get('claim_ttl', None)
+        if queue_claim_ttl and not isinstance(queue_claim_ttl, int):
+            msg = _(u'claim_ttl must be integer.')
+            raise ValidationFailed(msg)
+
+        if queue_claim_ttl:
+            if not (MIN_MESSAGE_CLAIM_TTL <= queue_claim_ttl <=
+                    self._limits_conf.max_claim_ttl):
+                msg = _(u'claim_ttl can not exceed {0} '
+                        'seconds, and must be at least {1} seconds long.')
+                raise ValidationFailed(
+                    msg, self._limits_conf.max_claim_ttl,
+                    MIN_MESSAGE_CLAIM_TTL)
 
         queue_max_msg_size = queue_metadata.get('_max_messages_post_size',
                                                 None)

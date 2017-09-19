@@ -238,6 +238,11 @@ def format_message_v1_1(message, base_path, claim_id=None):
         'ttl': message['ttl'],
         'age': message['age'],
         'body': message['body'],
+        'handle': message.get('handle', None),
+        'created_at': message.get('created_at', None),
+        'first_consumed_at': message.get('first_consumed_at', None),
+        'consume_count': message.get('consume_count', None),
+        'next_consume_at': message.get('next_consume_at', None),
     }
 
 

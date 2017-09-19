@@ -136,6 +136,12 @@ class MessageController(storage.Message):
             claim            ->     c
             client uuid      ->     u
             transaction      ->    tx
+            delay            ->     d
+            created_at       ->   c_t
+            consume          ->   c_m
+            consume_count    ->    cc
+            consume_first    ->  fc_t
+            consume_next     ->  nc_t
     """
 
     def __init__(self, *args, **kwargs):
@@ -659,6 +665,8 @@ class MessageController(storage.Message):
                 'tx': None,
                 'd': {'e': now + message['delay_ttl'],
                       't': message['delay_ttl']},
+                'c_t': now,
+                'cm': {'cc': 0}
             }
 
             for index, message in enumerate(messages)
@@ -721,6 +729,29 @@ class MessageController(storage.Message):
 
     @utils.raises_conn_error
     @utils.retries_on_autoreconnect
+    def consume_delete(self, queue_name, consume_id, project=None):
+        cid = utils.to_oid(consume_id)
+        if cid is None:
+            raise errors.MessageHandleInvalid(consume_id)
+        collection = self._collection(queue_name, project)
+        query = {
+            'c_id': cid,
+            PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+        }
+        now = timeutils.utcnow_ts()
+        cursor = collection.find(query)
+
+        try:
+            message = next(cursor)
+        except StopIteration:
+            raise errors.MessageHandleInvalid(consume_id)
+
+        if _is_claimed_expired(message, now):
+            raise errors.MessageClaimedExpired(consume_id)
+        collection.remove(query, w=0)
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
     def bulk_delete(self, queue_name, message_ids, project=None):
         message_ids = [mid for mid in map(utils.to_oid, message_ids) if mid]
         query = {
@@ -730,6 +761,48 @@ class MessageController(storage.Message):
 
         collection = self._collection(queue_name, project)
         collection.remove(query, w=0)
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
+    def bulk_consume_delete(self, queue_name, consume_ids, project=None):
+        c_ids = [mid for mid in map(utils.to_oid, consume_ids) if mid]
+        expired_ids = []
+        invalid_ids = list(set(consume_ids) - set([str(c_id) for c_id in c_ids]))
+        now = timeutils.utcnow_ts()
+        collection = self._collection(queue_name, project)
+        for c_id in c_ids:
+            query = {
+                'c_id': c_id,
+                PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+            }
+            cursor = collection.find(query)
+            try:
+                message = next(cursor)
+            except StopIteration:
+                invalid_ids.append(str(c_id))
+                continue
+
+            if _is_claimed_expired(message, now):
+                expired_ids.append(str(c_id))
+        tmp = []
+        for c_id in c_ids:
+            if str(c_id) in expired_ids or str(c_id) in invalid_ids:
+                tmp.append(c_id)
+        c_ids = list(set(c_ids) - set(tmp))
+        if c_ids:
+            query = {
+                'c_id': {'$in': c_ids},
+                PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+            }
+            collection.remove(query, w=0)
+        res = {}
+        if invalid_ids or expired_ids:
+            res = {
+                'success': [str(c_id) for c_id in c_ids],
+                'invalid': invalid_ids,
+                'expired': expired_ids
+            }
+        return res
 
     @utils.raises_conn_error
     @utils.retries_on_autoreconnect
@@ -995,6 +1068,11 @@ def _is_claimed(msg, now):
             msg['c']['e'] > now)
 
 
+def _is_claimed_expired(msg, now):
+    return (msg['c']['id'] is not None and
+            msg['c']['e'] < now)
+
+
 def _basic_message(msg, now):
     oid = msg['_id']
     age = now - utils.oid_ts(oid)
@@ -1014,7 +1092,12 @@ def _basic_message(msg, now):
         'body': msg.get('b', None),
         'status': status,
         'status_end': status_end,
-        'claim_id': str(msg['c']['id']) if msg['c']['id'] else None
+        'handle': str(msg['c_id']) if msg.get('c_id', None) else None,
+        'claim_id': str(msg['c']['id']) if msg['c']['id'] else None,
+        'created_at': msg.get('c_t', None),
+        'first_consumed_at': msg.get('cm', {}).get('fc_t', None),
+        'consume_count': msg.get('cm', {}).get('cc', 0),
+        'next_consume_at': msg.get('cm', {}).get('nc_t', None),
     }
 
 

@@ -18,6 +18,7 @@ from zaqar.transport.wsgi.v2_0 import flavors
 from zaqar.transport.wsgi.v2_0 import health
 from zaqar.transport.wsgi.v2_0 import homedoc
 from zaqar.transport.wsgi.v2_0 import messages
+from zaqar.transport.wsgi.v2_0 import consume
 from zaqar.transport.wsgi.v2_0 import ping
 from zaqar.transport.wsgi.v2_0 import pools
 from zaqar.transport.wsgi.v2_0 import purge
@@ -93,6 +94,15 @@ def public_endpoints(driver, conf):
                                      defaults.message_ttl)),
         ('/queues/{queue_name}/messages/{message_id}',
          messages.ItemResource(message_controller)),
+
+        ('/queues/{queue_name}/consume',
+         consume.CollectionResource(driver._wsgi_conf,
+                                    driver._validate,
+                                    message_controller,
+                                    queue_controller,
+                                    claim_controller)),
+        ('/queues/{queue_name}/consume/{handle}',
+         consume.ItemResource(message_controller)),
 
         # Claims Endpoints
         ('/queues/{queue_name}/claims',

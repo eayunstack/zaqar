@@ -38,18 +38,20 @@ class CollectionResource(object):
         '_wsgi_conf',
         '_validate',
         '_message_post_spec',
-        '_default_message_ttl'
+        '_default_message_ttl',
+        '_claim_controller'
     )
 
     def __init__(self, wsgi_conf, validate,
                  message_controller, queue_controller,
-                 default_message_ttl):
+                 default_message_ttl, claim_controller=None):
 
         self._wsgi_conf = wsgi_conf
         self._validate = validate
         self._message_controller = message_controller
         self._queue_controller = queue_controller
         self._default_message_ttl = default_message_ttl
+        self._claim_controller = claim_controller
 
         self._message_post_spec = (
             ('ttl', int, self._default_message_ttl),

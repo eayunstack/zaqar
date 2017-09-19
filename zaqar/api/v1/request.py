@@ -25,8 +25,7 @@ class RequestSchema(api.Api):
         'Accept': {'type': 'string'},
         'Client-ID': {'type': 'string'},
         'X-Project-ID': {'type': 'string'},
-        'X-Auth-Token': {'type': 'string'}
-        }
+        'X-Auth-Token': {'type': 'string'}}
 
     schema = {
 
@@ -179,7 +178,7 @@ class RequestSchema(api.Api):
         consts.MESSAGE_LIST: {
             'properties': {
                 'action': {'enum': [consts.MESSAGE_LIST]},
-                'headers':  {
+                'headers': {
                     'type': 'object',
                     'properties': headers,
                     'required': ['Client-ID', 'X-Project-ID']

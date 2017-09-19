@@ -18,11 +18,14 @@
     "topics:delete": "",
     "topics:update": "",
 
+    "messages:consume": "",
     "messages:get_all": "",
     "messages:create": "",
     "messages:get": "",
     "messages:delete": "",
     "messages:delete_all": "",
+    "messages:consume_delete": "",
+    "messages:consume_delete_all": "",
 
     "claims:get_all": "",
     "claims:create": "",

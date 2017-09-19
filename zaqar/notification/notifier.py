@@ -70,9 +70,8 @@ class NotifierDriver(object):
                             LOG.info(_LI('The subscriber %s is not '
                                          'confirmed.'), sub['subscriber'])
                             continue
-                        for msg in messages:
-                            msg['Message_Type'] = MessageType.Notification.name
-                        self._execute(s_type, sub, messages)
+                        self._execute(s_type, sub, messages,
+                                      client_uuid=client_uuid, project=project)
                     marker = next(subscribers)
                     if not marker:
                         break
@@ -139,14 +138,20 @@ class NotifierDriver(object):
 
         self._execute(s_type, subscription, [messages], conf)
 
-    def _execute(self, s_type, subscription, messages, conf=None):
+    def _execute(self, s_type, subscription, messages,
+                 conf=None, client_uuid=None, project=None):
+        msg_ctrl = queue_ctrl = None
         if self.subscription_controller:
             data_driver = self.subscription_controller.driver
             conf = data_driver.conf
+            msg_ctrl = data_driver.message_controller
+            queue_ctrl = data_driver.queue_controller
         else:
             conf = conf
         mgr = driver.DriverManager('zaqar.notification.tasks',
                                    s_type,
                                    invoke_on_load=True)
         self.executor.submit(mgr.driver.execute, subscription, messages,
-                             conf=conf)
+                             conf=conf, client_uuid=client_uuid, project=project,
+                             message_controller=msg_ctrl,
+                             queue_controller=queue_ctrl)

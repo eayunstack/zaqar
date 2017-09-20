@@ -39,7 +39,7 @@ TTL_INDEX_FIELDS = [
 class SubscriptionController(base.Subscription):
     """Implements subscription resource operations using MongoDB.
 
-    Subscriptions are unique by project + queue/topic + subscriber.
+    Subscriptions are unique by project + topic + subscriber.
 
     Schema:
       's': source :: six.text_type
@@ -65,9 +65,9 @@ class SubscriptionController(base.Subscription):
                                       background=True)
 
     @utils.raises_conn_error
-    def list(self, queue, project=None, marker=None,
+    def list(self, topic, project=None, marker=None,
              limit=storage.DEFAULT_SUBSCRIPTIONS_PER_PAGE):
-        query = {'s': queue, 'p': project}
+        query = {'s': topic, 'p': project}
         if marker is not None:
             query['_id'] = {'$gt': utils.to_oid(marker)}
 
@@ -88,10 +88,10 @@ class SubscriptionController(base.Subscription):
         yield marker_name and marker_name['next']
 
     @utils.raises_conn_error
-    def get(self, queue, subscription_id, project=None):
+    def get(self, topic, subscription_id, project=None):
         res = self._collection.find_one({'_id': utils.to_oid(subscription_id),
                                          'p': project,
-                                         's': queue})
+                                         's': topic})
 
         if not res:
             raise errors.SubscriptionDoesNotExist(subscription_id)
@@ -100,18 +100,13 @@ class SubscriptionController(base.Subscription):
         return _basic_subscription(res, now)
 
     @utils.raises_conn_error
-    def create(self, queue, subscriber, ttl, options, project=None):
-        source = queue
-        now = timeutils.utcnow_ts()
-        now_dt = datetime.datetime.utcfromtimestamp(now)
-        expires = now_dt + datetime.timedelta(seconds=ttl)
+    def create(self, topic, subscriber, ttl, options, project=None):
+        source = topic
         confirmed = False
 
         try:
             subscription_id = self._collection.insert({'s': source,
                                                        'u': subscriber,
-                                                       't': ttl,
-                                                       'e': expires,
                                                        'o': options,
                                                        'p': project,
                                                        'c': confirmed})
@@ -120,12 +115,12 @@ class SubscriptionController(base.Subscription):
             return None
 
     @utils.raises_conn_error
-    def exists(self, queue, subscription_id, project=None):
+    def exists(self, topic, subscription_id, project=None):
         return self._collection.find_one({'_id': utils.to_oid(subscription_id),
                                           'p': project}) is not None
 
     @utils.raises_conn_error
-    def update(self, queue, subscription_id, project=None, **kwargs):
+    def update(self, topic, subscription_id, project=None, **kwargs):
         names = ('subscriber', 'ttl', 'options')
         key_transform = lambda x: 'u' if x == 'subscriber' else x[0]
         fields = common_utils.fields(kwargs, names,
@@ -140,12 +135,24 @@ class SubscriptionController(base.Subscription):
             now_dt = datetime.datetime.utcfromtimestamp(now)
             expires = now_dt + datetime.timedelta(seconds=new_ttl)
             fields['e'] = expires
-
+        options = fields.get('o', {})
+        if options:
+            sub = self._collection.find_one({'_id': utils.
+                                             to_oid(subscription_id),
+                                             'p': project,
+                                             's': topic})
+            if not sub:
+                raise errors.SubscriptionDoesNotExist(subscription_id)
+            sub_o = sub.get('o', {})
+            if sub_o:
+                for o_k in options:
+                    sub_o[o_k] = options[o_k]
+                fields['o'] = sub_o
         try:
             res = self._collection.update(
                 {'_id': utils.to_oid(subscription_id),
                  'p': project,
-                 's': queue},
+                 's': topic},
                 {'$set': fields},
                 upsert=False)
         except pymongo.errors.DuplicateKeyError:
@@ -154,20 +161,20 @@ class SubscriptionController(base.Subscription):
             raise errors.SubscriptionDoesNotExist(subscription_id)
 
     @utils.raises_conn_error
-    def delete(self, queue, subscription_id, project=None):
+    def delete(self, topic, subscription_id, project=None):
         self._collection.remove({'_id': utils.to_oid(subscription_id),
                                  'p': project,
-                                 's': queue}, w=0)
+                                 's': topic}, w=0)
 
     @utils.raises_conn_error
-    def get_with_subscriber(self, queue, subscriber, project=None):
+    def get_with_subscriber(self, topic, subscriber, project=None):
         res = self._collection.find_one({'u': subscriber,
                                          'p': project})
         now = timeutils.utcnow_ts()
         return _basic_subscription(res, now)
 
     @utils.raises_conn_error
-    def confirm(self, queue, subscription_id, project=None, confirmed=True):
+    def confirm(self, topic, subscription_id, project=None, confirmed=True):
 
         res = self._collection.update({'_id': utils.to_oid(subscription_id),
                                        'p': project},
@@ -189,7 +196,7 @@ def _basic_subscription(record, now):
         'id': str(oid),
         'source': record['s'],
         'subscriber': record['u'],
-        'ttl': record['t'],
+        'ttl': record.get('t', None),
         'age': int(age),
         'options': record['o'],
         'confirmed': confirmed,

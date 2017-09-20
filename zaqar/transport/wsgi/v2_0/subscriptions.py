@@ -45,9 +45,9 @@ class ItemResource(object):
 
     @decorators.TransportLog("Subscriptions item")
     @acl.enforce("subscription:get")
-    def on_get(self, req, resp, project_id, queue_name, subscription_id):
+    def on_get(self, req, resp, project_id, topic_name, subscription_id):
         try:
-            resp_dict = self._subscription_controller.get(queue_name,
+            resp_dict = self._subscription_controller.get(topic_name,
                                                           subscription_id,
                                                           project=project_id)
 
@@ -65,9 +65,9 @@ class ItemResource(object):
 
     @decorators.TransportLog("Subscriptions item")
     @acl.enforce("subscription:delete")
-    def on_delete(self, req, resp, project_id, queue_name, subscription_id):
+    def on_delete(self, req, resp, project_id, topic_name, subscription_id):
         try:
-            self._subscription_controller.delete(queue_name,
+            self._subscription_controller.delete(topic_name,
                                                  subscription_id,
                                                  project=project_id)
 
@@ -80,7 +80,7 @@ class ItemResource(object):
 
     @decorators.TransportLog("Subscriptions item")
     @acl.enforce("subscription:update")
-    def on_patch(self, req, resp, project_id, queue_name, subscription_id):
+    def on_patch(self, req, resp, project_id, topic_name, subscription_id):
         if req.content_length:
             document = wsgi_utils.deserialize(req.stream, req.content_length)
         else:
@@ -88,7 +88,7 @@ class ItemResource(object):
 
         try:
             self._validate.subscription_patching(document)
-            self._subscription_controller.update(queue_name, subscription_id,
+            self._subscription_controller.update(topic_name, subscription_id,
                                                  project=project_id,
                                                  **document)
             resp.status = falcon.HTTP_204
@@ -114,21 +114,21 @@ class ItemResource(object):
 class CollectionResource(object):
 
     __slots__ = ('_subscription_controller', '_validate',
-                 '_default_subscription_ttl', '_queue_controller',
+                 '_default_subscription_ttl', '_topic_controller',
                  '_conf', '_notification')
 
     def __init__(self, validate, subscription_controller,
-                 default_subscription_ttl, queue_controller, conf):
+                 default_subscription_ttl, topic_controller, conf):
         self._subscription_controller = subscription_controller
         self._validate = validate
         self._default_subscription_ttl = default_subscription_ttl
-        self._queue_controller = queue_controller
+        self._topic_controller = topic_controller
         self._conf = conf
         self._notification = notifier.NotifierDriver()
 
     @decorators.TransportLog("Subscriptions collection")
     @acl.enforce("subscription:get_all")
-    def on_get(self, req, resp, project_id, queue_name):
+    def on_get(self, req, resp, project_id, topic_name):
         kwargs = {}
 
         # NOTE(kgriffs): This syntax ensures that
@@ -138,7 +138,7 @@ class CollectionResource(object):
 
         try:
             self._validate.subscription_listing(**kwargs)
-            results = self._subscription_controller.list(queue_name,
+            results = self._subscription_controller.list(topic_name,
                                                          project=project_id,
                                                          **kwargs)
             # Buffer list of subscriptions. Can raise NoPoolFound error.
@@ -173,15 +173,15 @@ class CollectionResource(object):
 
     @decorators.TransportLog("Subscriptions collection")
     @acl.enforce("subscription:create")
-    def on_post(self, req, resp, project_id, queue_name):
+    def on_post(self, req, resp, project_id, topic_name):
         if req.content_length:
             document = wsgi_utils.deserialize(req.stream, req.content_length)
         else:
             document = {}
 
         try:
-            if not self._queue_controller.exists(queue_name, project_id):
-                self._queue_controller.create(queue_name, project=project_id)
+            if not self._topic_controller.exists(topic_name, project_id):
+                self._topic_controller.create(topic_name, project=project_id)
             self._validate.subscription_posting(document)
             subscriber = document['subscriber']
             options = document.get('options', {})
@@ -193,7 +193,7 @@ class CollectionResource(object):
             req_data.update(req.env)
             mgr.driver.register(subscriber, options, ttl, project_id, req_data)
 
-            created = self._subscription_controller.create(queue_name,
+            created = self._subscription_controller.create(topic_name,
                                                            subscriber,
                                                            ttl,
                                                            options,
@@ -211,12 +211,12 @@ class CollectionResource(object):
         expires = now_dt + datetime.timedelta(seconds=ttl)
         api_version = req.path.split('/')[1]
         if created:
-            subscription = self._subscription_controller.get(queue_name,
+            subscription = self._subscription_controller.get(topic_name,
                                                              created,
                                                              project_id)
             # send confirm notification
             self._notification.send_confirm_notification(
-                queue_name, subscription, self._conf, project_id,
+                topic_name, subscription, self._conf, project_id,
                 str(expires), api_version)
 
             resp.location = req.path
@@ -225,11 +225,11 @@ class CollectionResource(object):
                 {'subscription_id': six.text_type(created)})
         else:
             subscription = self._subscription_controller.get_with_subscriber(
-                queue_name, subscriber, project_id)
+                topic_name, subscriber, project_id)
             confirmed = subscription.get('confirmed', True)
             if confirmed:
                 description = _(u'Such subscription already exists.'
-                                u'Subscriptions are unique by project + queue '
+                                u'Subscriptions are unique by project + topic '
                                 u'+ subscriber URI.')
                 raise wsgi_errors.HTTPConflict(description,
                                                headers={'location': req.path})
@@ -237,7 +237,7 @@ class CollectionResource(object):
                 # The subscription is not confirmed, re-send confirm
                 # notification
                 self._notification.send_confirm_notification(
-                    queue_name, subscription, self._conf, project_id,
+                    topic_name, subscription, self._conf, project_id,
                     str(expires), api_version)
 
                 resp.location = req.path
@@ -259,7 +259,7 @@ class ConfirmResource(object):
 
     @decorators.TransportLog("Subscription confirmation item")
     @acl.enforce("subscription:confirm")
-    def on_put(self, req, resp, project_id, queue_name, subscription_id):
+    def on_put(self, req, resp, project_id, topic_name, subscription_id):
         if req.content_length:
             document = wsgi_utils.deserialize(req.stream, req.content_length)
         else:
@@ -268,7 +268,7 @@ class ConfirmResource(object):
         try:
             self._validate.subscription_confirming(document)
             confirmed = document.get('confirmed', None)
-            self._subscription_controller.confirm(queue_name, subscription_id,
+            self._subscription_controller.confirm(topic_name, subscription_id,
                                                   project=project_id,
                                                   confirmed=confirmed)
             if confirmed is False:
@@ -277,10 +277,10 @@ class ConfirmResource(object):
                 ttl = self._conf.transport.default_subscription_ttl
                 expires = now_dt + datetime.timedelta(seconds=ttl)
                 api_version = req.path.split('/')[1]
-                sub = self._subscription_controller.get(queue_name,
+                sub = self._subscription_controller.get(topic_name,
                                                         subscription_id,
                                                         project=project_id)
-                self._notification.send_confirm_notification(queue_name,
+                self._notification.send_confirm_notification(topic_name,
                                                              sub,
                                                              self._conf,
                                                              project_id,

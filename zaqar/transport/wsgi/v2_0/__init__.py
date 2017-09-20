@@ -95,6 +95,12 @@ def public_endpoints(driver, conf):
         ('/queues/{queue_name}/messages/{message_id}',
          messages.ItemResource(message_controller)),
 
+        ('/topics/{topic_name}/messages',
+         messages.TopicResource(driver._validate,
+                                message_controller,
+                                topic_controller,
+                                defaults.message_ttl)),
+
         ('/queues/{queue_name}/consume',
          consume.CollectionResource(driver._wsgi_conf,
                                     driver._validate,
@@ -123,18 +129,18 @@ def public_endpoints(driver, conf):
          ping.Resource(driver._storage)),
 
         # Subscription Endpoints
-        ('/queues/{queue_name}/subscriptions',
+        ('/topics/{topic_name}/subscriptions',
          subscriptions.CollectionResource(driver._validate,
                                           subscription_controller,
                                           defaults.subscription_ttl,
-                                          queue_controller,
+                                          topic_controller,
                                           conf)),
 
-        ('/queues/{queue_name}/subscriptions/{subscription_id}',
+        ('/topics/{topic_name}/subscriptions/{subscription_id}',
          subscriptions.ItemResource(driver._validate,
                                     subscription_controller)),
 
-        ('/queues/{queue_name}/subscriptions/{subscription_id}/confirm',
+        ('/topics/{topic_name}/subscriptions/{subscription_id}/confirm',
          subscriptions.ConfirmResource(driver._validate,
                                        subscription_controller,
                                        conf)),

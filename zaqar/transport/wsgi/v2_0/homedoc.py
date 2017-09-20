@@ -119,6 +119,19 @@ JSON_HOME = {
                 'accept-post': ['application/json'],
             },
         },
+        'rel/publish_messages': {
+            'href-template': '/v2/topics/{topic_name}/messages',
+            'href-vars': {
+                'topic_name': 'param/topic_name',
+            },
+            'hints': {
+                'allow': ['POST'],
+                'formats': {
+                    'application/json': {},
+                },
+                'accept-post': ['application/json'],
+            },
+        },
         'rel/messages_delete': {
             'href-template': '/v2/queues/{queue_name}/messages{?ids,pop}',
             'href-vars': {
@@ -229,9 +242,9 @@ JSON_HOME = {
         # Subscriptions
         # -----------------------------------------------------------------
         'rel/subscriptions_get': {
-            'href-template': '/v2/queues/{queue_name}/subscriptions{?marker,limit}',  # noqa
+            'href-template': '/v2/topics/{topic_name}/subscriptions{?marker,limit}',  # noqa
             'href-vars': {
-                'queue_name': 'param/queue_name',
+                'topic_name': 'param/topic_name',
                 'marker': 'param/marker',
                 'limit': 'param/subscription_limit',
             },
@@ -243,9 +256,9 @@ JSON_HOME = {
             }
         },
         'rel/subscriptions_post': {
-            'href-template': '/v2/queues/{queue_name}/subscriptions',
+            'href-template': '/v2/topics/{topic_name}/subscriptions',
             'href-vars': {
-                'queue_name': 'param/queue_name',
+                'topic_name': 'param/topic_name',
                 'limit': 'param/subscription_limit',
             },
             'hints': {
@@ -257,9 +270,9 @@ JSON_HOME = {
             }
         },
         'rel/subscription': {
-            'href-template': '/v2/queues/{queue_name}/subscriptions/{subscriptions_id}',  # noqa
+            'href-template': '/v2/topics/{topic_name}/subscriptions/{subscriptions_id}',  # noqa
             'href-vars': {
-                'queue_name': 'param/queue_name',
+                'topic_name': 'param/topic_name',
                 'subscriptions_id': 'param/subscriptions_id',
             },
             'hints': {
@@ -270,9 +283,9 @@ JSON_HOME = {
             }
         },
         'rel/subscription_patch': {
-            'href-template': '/v2/queues/{queue_name}/subscriptions/{subscriptions_id}',  # noqa
+            'href-template': '/v2/topics/{topic_name}/subscriptions/{subscriptions_id}',  # noqa
             'href-vars': {
-                'queue_name': 'param/queue_name',
+                'topic_name': 'param/topic_name',
                 'subscriptions_id': 'param/subscriptions_id',
             },
             'hints': {

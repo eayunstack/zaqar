@@ -150,6 +150,7 @@ class MessageController(storage.Message):
         # Cache for convenience and performance
         self._num_partitions = self.driver.mongodb_conf.partitions
         self._queue_ctrl = self.driver.queue_controller
+        self._topic_ctrl = self.driver.topic_controller
         self._retry_range = range(self.driver.mongodb_conf.max_attempts)
 
         # Create a list of 'messages' collections, one for each database
@@ -678,6 +679,37 @@ class MessageController(storage.Message):
 
     @utils.raises_conn_error
     @utils.retries_on_autoreconnect
+    def publish(self, topic_name, messages, client_uuid, project=None):
+
+        if not self._topic_ctrl.exists(topic_name, project):
+            raise errors.TopicDoesNotExist(topic_name, project)
+
+        now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
+        collection = self._collection(topic_name, project)
+
+        messages = list(messages)
+        prepared_messages = [
+            {
+                'p_t': utils.scope_queue_name(topic_name, project),
+                't': message['ttl'],
+                'e': now_dt + datetime.timedelta(seconds=message['ttl']),
+                'u': client_uuid,
+                'b': message['body'] if 'body' in message else {},
+                'tags': message['tags'] if 'tags' in message else [],
+                'tx': None,
+                'c_t': now,
+            }
+
+            for index, message in enumerate(messages)
+        ]
+
+        ids = collection.insert(prepared_messages, check_keys=False)
+
+        return [str(id_) for id_ in ids]
+
+    @utils.raises_conn_error
+    @utils.retries_on_autoreconnect
     def delete(self, queue_name, message_id, project=None, claim=None):
         # NOTE(cpp-cabrera): return early - this is an invalid message
         # id so we won't be able to find it any way
@@ -767,7 +799,8 @@ class MessageController(storage.Message):
     def bulk_consume_delete(self, queue_name, consume_ids, project=None):
         c_ids = [mid for mid in map(utils.to_oid, consume_ids) if mid]
         expired_ids = []
-        invalid_ids = list(set(consume_ids) - set([str(c_id) for c_id in c_ids]))
+        invalid_ids = list(set(consume_ids) -
+                           set([str(c_id) for c_id in c_ids]))
         now = timeutils.utcnow_ts()
         collection = self._collection(queue_name, project)
         for c_id in c_ids:

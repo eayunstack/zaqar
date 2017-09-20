@@ -17,7 +17,7 @@ import json
 from oslo_log import log as logging
 import requests
 
-from zaqar.i18n import _LE
+from zaqar.notification import tasks
 
 LOG = logging.getLogger(__name__)
 
@@ -28,7 +28,10 @@ class WebhookTask(object):
         if headers is None:
             headers = {'Content-Type': 'application/json'}
         headers.update(subscription['options'].get('post_headers', {}))
-        try:
+        conf = kwargs.get('conf', None)
+
+        @tasks.notifier_retry_policy(conf, messages, subscription)
+        def _post_msg():
             for msg in messages:
                 # NOTE(Eva-i): Unfortunately this will add 'queue_name' key to
                 # our original messages(dicts) which will be later consumed in
@@ -42,8 +45,11 @@ class WebhookTask(object):
                 requests.post(subscription['subscriber'],
                               data=data,
                               headers=headers)
-        except Exception as e:
-            LOG.exception(_LE('webhook task got exception: %s.') % str(e))
+
+            LOG.debug('Messages: %s publish for Subscription:'
+                      '%s Success.' % (messages, subscription))
+
+        _post_msg()
 
     def register(self, subscriber, options, ttl, project_id, request_data):
         pass

@@ -16,6 +16,7 @@
 from oslo_log import log as logging
 
 from zaqar.i18n import _LE
+from zaqar.notification import tasks
 
 LOG = logging.getLogger(__name__)
 
@@ -23,33 +24,36 @@ LOG = logging.getLogger(__name__)
 class QueueTask(object):
 
     def execute(self, subscription, messages, **kwargs):
+        queue_name = subscription.get('subscriber', '').split(':')[-1]
+        client_uuid = kwargs.get('client_uuid', None)
+        message_controller = kwargs.get('message_controller', None)
+        queue_controller = kwargs.get('queue_controller', None)
+        project_id = kwargs.get('project', None)
+        conf = kwargs.get('conf', None)
         try:
-            queue_name = subscription.get('subscriber', '').split(':')[-1]
-            client_uuid = kwargs.get('client_uuid', None)
-            message_controller = kwargs.get('message_controller', None)
-            queue_controller = kwargs.get('queue_controller', None)
-            project_id = kwargs.get('project', None)
-            queue_meta = queue_controller.get_metadata(queue_name, project_id)
-            queue_default_ttl = queue_meta.get('_default_message_ttl', 3600)
-            delay_ttl = queue_meta.get('delay_ttl', 0)
+            queue_meta = queue_controller.get_metadata(queue_name,
+                                                       project_id)
+        except Exception as e:
+            LOG.error(_LE('Queue task got exception: %s.') % str(e))
 
-            new_messages = []
-            for msg in messages:
-                new_msg = {}
-                new_msg['ttl'] = queue_default_ttl
-                new_msg['delay_ttl'] = delay_ttl
-                new_msg['body'] = msg['body']
-                new_messages.append(new_msg)
+        queue_default_ttl = queue_meta.get('_default_message_ttl',
+                                           3600)
+        delay_ttl = queue_meta.get('delay_ttl', 0)
+        for msg in messages:
+            msg['ttl'] = queue_default_ttl
+            msg['delay_ttl'] = delay_ttl
 
+        @tasks.notifier_retry_policy(conf, messages, subscription)
+        def _post_msg():
             message_ids = message_controller.post(queue_name,
-                                                  messages=new_messages,
+                                                  messages=messages,
                                                   project=project_id,
                                                   client_uuid=client_uuid)
             LOG.debug('Messages: %s publish for Subscription:'
                       '%s Success. Message id is: %s ' %
-                  (messages, subscription, message_ids))
-        except Exception as e:
-            LOG.exception(_LE('queue task got exception: %s.') % str(e))
+                      (messages, subscription, message_ids))
+
+        _post_msg()
 
     def register(self, subscriber, options, ttl, project_id, request_data):
         pass

@@ -64,6 +64,8 @@ _NOTIFICATION_OPTIONS = (
                      '"command_name arg1 arg2".')),
     cfg.IntOpt('max_notifier_workers', default=10,
                help='The max amount of the notification workers.'),
+    cfg.IntOpt('max_notifier_retries', default=20,
+               help='The max amount of the notification workers.'),
     cfg.BoolOpt('require_confirmation', default=False,
                 help='Whether the http/https/email subscription need to be '
                      'confirmed before notification.'),

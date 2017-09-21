@@ -233,6 +233,10 @@ class DataDriverBase(DriverBase):
         return self.control_driver.queue_controller
 
     @abc.abstractproperty
+    def monitor_controller(self):
+        raise NotImplementedError
+
+    @abc.abstractproperty
     def message_controller(self):
         """Returns the driver's message controller."""
         raise NotImplementedError
@@ -1177,5 +1181,69 @@ class FlavorsBase(ControllerBase):
     @abc.abstractmethod
     def drop_all(self):
         """Deletes all flavors from storage."""
+
+        raise NotImplementedError
+
+
+@six.add_metaclass(abc.ABCMeta)
+class MonitorBase(ControllerBase):
+    """A controller for managing monitors."""
+
+    @abc.abstractmethod
+    def list(self, m_type=None, project=None, marker=None, limit=10):
+        """Lists all registered monitors.
+
+        :param m_type: Type this monitor belongs to.
+        :type m_type: six.text_type
+        :param project: Project this monitor belongs to.
+        :type project: six.text_type
+        :param marker: used to determine which monitor to start with
+        :type marker: six.text_type
+        :param limit: (Default 10) Max number of results to return
+        :type limit: int
+        :returns: A list of monitors - key, project, monitor value
+        :rtype: [{}]
+        """
+
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def create(self, name, m_type, project):
+        """Registers a monitor entry.
+
+        :param m_type: Type this monitor belongs to.
+        :type m_type: six.text_type
+        :param name: The name of this resource.
+        :type name: six.text_type
+        :param project: Project this monitor belongs to.
+        :type project: six.text_type
+        """
+
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get(self, name, m_type, project):
+        """Returns a single monitor entry.
+
+        :param m_type: Type this monitor belongs to.
+        :type m_type: six.text_type
+        :param name: The name of this resource.
+        :type name: six.text_type
+        :param project: Project this monitor belongs to.
+        :type project: six.text_type
+        :rtype: {}
+        :raises: MonitorDoesNotExist if not found
+        """
+
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def update(self, body):
+        """Updates the monitor.
+
+        :param body: monitor value.
+        :type body: dict
+        :raises: MonitorDoesNotExist
+        """
 
         raise NotImplementedError

@@ -44,6 +44,7 @@ class NotifierDriver(object):
 
     def __init__(self, *args, **kwargs):
         self.subscription_controller = kwargs.get('subscription_controller')
+        self.monitor_controller = kwargs.get('monitor_controller')
         max_workers = kwargs.get('max_notifier_workers', 10)
         self.executor = futurist.ThreadPoolExecutor(max_workers=max_workers)
         self.require_confirmation = kwargs.get('require_confirmation', False)
@@ -83,6 +84,14 @@ class NotifierDriver(object):
                                 publish_msgs.append(msg)
                         self._execute(s_type, sub, publish_msgs,
                                       client_uuid=client_uuid, project=project)
+                        try:
+                            self.monitor_controller.\
+                                    update(publish_msgs,
+                                           topic_name,
+                                           project,
+                                           'subscribe_messages')
+                        except Exception as ex:
+                            LOG.exception(ex)
 
                     marker = next(subscribers)
                     if not marker:
@@ -152,12 +161,13 @@ class NotifierDriver(object):
 
     def _execute(self, s_type, subscription, messages,
                  conf=None, client_uuid=None, project=None):
-        msg_ctrl = queue_ctrl = None
+        msg_ctrl = queue_ctrl = mon_ctrl = None
         if self.subscription_controller:
             data_driver = self.subscription_controller.driver
             conf = data_driver.conf
             msg_ctrl = data_driver.message_controller
             queue_ctrl = data_driver.queue_controller
+            mon_ctrl = data_driver.monitor_controller
         else:
             conf = conf
         mgr = driver.DriverManager('zaqar.notification.tasks',
@@ -166,4 +176,5 @@ class NotifierDriver(object):
         self.executor.submit(mgr.driver.execute, subscription, messages,
                              conf=conf, client_uuid=client_uuid, project=project,
                              message_controller=msg_ctrl,
-                             queue_controller=queue_ctrl)
+                             queue_controller=queue_ctrl,
+                             monitor_controller=mon_ctrl)

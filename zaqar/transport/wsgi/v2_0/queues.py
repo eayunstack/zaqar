@@ -32,12 +32,14 @@ LOG = logging.getLogger(__name__)
 class ItemResource(object):
 
     __slots__ = ('_validate', '_queue_controller', '_message_controller',
-                 '_reserved_metadata')
+                 '_reserved_metadata', '_monitor_controller')
 
-    def __init__(self, validate, queue_controller, message_controller):
+    def __init__(self, validate, queue_controller,
+                 message_controller, monitor_controller):
         self._validate = validate
         self._queue_controller = queue_controller
         self._message_controller = message_controller
+        self._monitor_controller = monitor_controller
         self._reserved_metadata = ['max_messages_post_size',
                                    'default_message_ttl']
 
@@ -99,6 +101,11 @@ class ItemResource(object):
             LOG.exception(ex)
             description = _(u'Queue could not be created.')
             raise wsgi_errors.HTTPServiceUnavailable(description)
+
+        try:
+            self._monitor_controller.create(queue_name, 'queues', project_id)
+        except Exception as ex:
+            LOG.exception(ex)
 
         resp.status = falcon.HTTP_201 if created else falcon.HTTP_204
         resp.location = req.path

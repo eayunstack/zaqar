@@ -28,6 +28,7 @@ class QueueTask(object):
         client_uuid = kwargs.get('client_uuid', None)
         message_controller = kwargs.get('message_controller', None)
         queue_controller = kwargs.get('queue_controller', None)
+        monitor_controller = kwargs.get('monitor_controller', None)
         project_id = kwargs.get('project', None)
         conf = kwargs.get('conf', None)
         try:
@@ -52,6 +53,13 @@ class QueueTask(object):
             LOG.debug('Messages: %s publish for Subscription:'
                       '%s Success. Message id is: %s ' %
                       (messages, subscription, message_ids))
+
+            try:
+                monitor_controller.update(messages, subscription['source'],
+                                          project_id, 'subscribe_messages',
+                                          success=True)
+            except Exception as ex:
+                LOG.exception(ex)
 
         _post_msg()
 

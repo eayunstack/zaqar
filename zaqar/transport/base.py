@@ -30,12 +30,18 @@ _GENERAL_TRANSPORT_OPTIONS = (
 _RESOURCE_DEFAULTS = (
     cfg.IntOpt('default_message_ttl', default=3600,
                help=('Defines how long a message will be accessible.')),
-    cfg.IntOpt('default_claim_ttl', default=300,
+    cfg.IntOpt('default_claim_ttl', default=30,
                help=('Defines how long a message will be in claimed state.')),
     cfg.IntOpt('default_claim_grace', default=60,
                help=('Defines the message grace period in seconds.')),
     cfg.IntOpt('default_subscription_ttl', default=3600,
                help=('Defines how long a subscription will be available.')),
+    cfg.IntOpt('default_message_size', default=65536,
+               help='Defines the default message post size.'),
+    cfg.IntOpt('default_queue_message_ttl', default=345600,
+               help='Defines the default queue message ttl.'),
+    cfg.IntOpt('default_delay_ttl', default=0,
+               help='Defines the default delay ttl.'),
 )
 
 _TRANSPORT_GROUP = 'transport'

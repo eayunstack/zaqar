@@ -42,6 +42,8 @@ _RESOURCE_DEFAULTS = (
                help='Defines the default queue message ttl.'),
     cfg.IntOpt('default_delay_ttl', default=0,
                help='Defines the default delay ttl.'),
+    cfg.IntOpt('default_topic_message_ttl', default=86400,
+               help='Defines the default queue message ttl.'),
 )
 
 _TRANSPORT_GROUP = 'transport'

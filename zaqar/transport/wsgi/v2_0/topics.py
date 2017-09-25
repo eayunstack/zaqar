@@ -49,6 +49,16 @@ class ItemResource(object):
         }
         return reserved_metadata
 
+    def _init_metadata(self, metadata):
+        default_key = {
+            '_max_messages_post_size': 'default_message_size',
+            '_default_message_ttl': 'default_topic_message_ttl'}
+
+        for key in default_key.keys():
+            if not metadata.get(key, None):
+                metadata[key] = self._validate. \
+                    get_limit_conf_value(default_key[key])
+
     @decorators.TransportLog("Topics item")
     @acl.enforce("topics:get")
     def on_get(self, req, resp, project_id, topic_name):
@@ -77,16 +87,13 @@ class ItemResource(object):
                 document = wsgi_utils.deserialize(req.stream,
                                                   req.content_length)
                 metadata = wsgi_utils.sanitize(document, spec=None)
+            self._init_metadata(metadata)
             self._validate.queue_metadata_putting(metadata)
         except validation.ValidationFailed as ex:
             LOG.debug(ex)
             raise wsgi_errors.HTTPBadRequestAPI(six.text_type(ex))
 
         try:
-            for meta in self._reserved_metadata:
-                if meta not in metadata:
-                    metadata['_%s' % meta] = \
-                        self._validate.get_limit_conf_value(meta)
             created = self._topic_controller.create(topic_name,
                                                     metadata=metadata,
                                                     project=project_id)

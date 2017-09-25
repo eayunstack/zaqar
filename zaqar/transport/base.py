@@ -44,6 +44,8 @@ _RESOURCE_DEFAULTS = (
                help='Defines the default delay ttl.'),
     cfg.IntOpt('default_topic_message_ttl', default=86400,
                help='Defines the default queue message ttl.'),
+    cfg.StrOpt('default_push_policy', default='EXPONENTIAL_DECAY_RETRY',
+               help='Defines the default subscription retry push policy.'),
 )
 
 _TRANSPORT_GROUP = 'transport'

@@ -684,8 +684,8 @@ class MessageController(storage.Message):
                 'b': message['body'] if 'body' in message else {},
                 'k': next_marker + index,
                 'tx': None,
-                'd': {'e': now + message['delay_ttl'],
-                      't': message['delay_ttl']},
+                'd': {'e': now + message.get('delay_ttl', 0),
+                      't': message.get('delay_ttl', 0)},
                 'c_t': now,
                 'cm': {'cc': 0}
             }

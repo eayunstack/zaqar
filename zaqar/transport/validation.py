@@ -456,7 +456,7 @@ class Validator(object):
             raise ValidationFailed(
                 msg, self._limits_conf.max_message_ttl, MIN_MESSAGE_TTL)
 
-        delay_ttl = message['delay_ttl']
+        delay_ttl = message.get('delay_ttl', 0)
 
         if not (MIN_MESSAGE_DELAY_TTL <= delay_ttl <=
                 self._limits_conf.max_message_delay_ttl):

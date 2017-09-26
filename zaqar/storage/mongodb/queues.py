@@ -190,7 +190,7 @@ class QueueController(storage.Queue):
 
     def _get(self, name, project=None):
         try:
-            return self.get_metadata(name, project)
+            return self.get_metadata(name, project, detailed=True)
         except errors.QueueDoesNotExist:
             return {}
 
@@ -199,7 +199,7 @@ class QueueController(storage.Queue):
 
         query = utils.scoped_query(marker, project)
 
-        projection = {'p_q': 1, '_id': 0}
+        projection = {'p_q': 1, 'c_t': 1, 'u_t': 1, '_id': 0}
         if detailed:
             projection['m'] = 1
 
@@ -212,6 +212,8 @@ class QueueController(storage.Queue):
             marker_name['next'] = queue['name']
             if detailed:
                 queue['metadata'] = record['m']
+                queue['created_at'] = record.get('c_t', None)
+                queue['updated_at'] = record.get('u_t', None)
             return queue
 
         yield utils.HookedCursor(cursor, normalizer)
@@ -219,12 +221,21 @@ class QueueController(storage.Queue):
 
     @utils.raises_conn_error
     @utils.retries_on_autoreconnect
-    def get_metadata(self, name, project=None):
+    def get_metadata(self, name, project=None, detailed=False):
         queue = self._collection.find_one(_get_scoped_query(name, project),
-                                          projection={'m': 1, '_id': 0})
+                                          projection={'m': 1, 'p_q': 1,
+                                                      'c_t': 1, 'u_t': 1,
+                                                      '_id': 0})
         if queue is None:
             raise errors.QueueDoesNotExist(name, project)
-
+        if detailed:
+            return {'queue': {
+                        'metadata': queue.get('m', {}),
+                        'name': utils.descope_queue_name(queue['p_q']),
+                        'created_at': queue.get('c_t', None),
+                        'updated_at': queue.get('u_t', None)
+                        }
+                    }
         return queue.get('m', {})
 
     @utils.raises_conn_error
@@ -245,9 +256,10 @@ class QueueController(storage.Queue):
             # "modified at" timestamp.
             counter = {'v': 1, 't': 0}
 
+            now = timeutils.utcnow_ts()
             scoped_name = utils.scope_queue_name(name, project)
             self._collection.insert({'p_q': scoped_name, 'm': metadata or {},
-                                     'c': counter})
+                                     'c': counter, 'c_t': now, 'u_t': now})
 
         except pymongo.errors.DuplicateKeyError:
             return False
@@ -266,8 +278,9 @@ class QueueController(storage.Queue):
     @utils.raises_conn_error
     @utils.retries_on_autoreconnect
     def set_metadata(self, name, metadata, project=None):
+        now = timeutils.utcnow_ts()
         rst = self._collection.update(_get_scoped_query(name, project),
-                                      {'$set': {'m': metadata}},
+                                      {'$set': {'m': metadata, 'u_t': now}},
                                       multi=False,
                                       manipulate=False)
 

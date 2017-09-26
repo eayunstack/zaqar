@@ -126,6 +126,15 @@ class CollectionResource(object):
         self._conf = conf
         self._notification = notifier.NotifierDriver()
 
+    def _init_options(self, options):
+        default_key = {
+            'push_policy': 'default_push_policy'}
+
+        for key in default_key.keys():
+            if not options.get(key, None):
+                options[key] = self._validate. \
+                    get_limit_conf_value(default_key[key])
+
     @decorators.TransportLog("Subscriptions collection")
     @acl.enforce("subscription:get_all")
     def on_get(self, req, resp, project_id, topic_name):
@@ -185,6 +194,7 @@ class CollectionResource(object):
             self._validate.subscription_posting(document)
             subscriber = document['subscriber']
             options = document.get('options', {})
+            self._init_options(options)
             url = netutils.urlsplit(subscriber)
             ttl = document.get('ttl', self._default_subscription_ttl)
             mgr = driver.DriverManager('zaqar.notification.tasks', url.scheme,

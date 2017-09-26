@@ -51,15 +51,24 @@ class ItemResource(object):
         }
         return reserved_metadata
 
+    def _init_metadata(self, metadata):
+        default_key = {
+            '_max_messages_post_size': 'default_message_size',
+            '_default_message_ttl': 'default_queue_message_ttl',
+            'claim_ttl': 'default_claim_ttl',
+            'delay_ttl': 'default_delay_ttl'}
+
+        for key in default_key.keys():
+            if not metadata.get(key, None):
+                metadata[key] = self._validate. \
+                    get_limit_conf_value(default_key[key])
+
     @decorators.TransportLog("Queues item")
     @acl.enforce("queues:get")
     def on_get(self, req, resp, project_id, queue_name):
         try:
             resp_dict = self._queue_controller.get(queue_name,
                                                    project=project_id)
-            for meta, value in self._get_reserved_metadata().items():
-                if not resp_dict.get(meta, None):
-                    resp_dict[meta] = value
         except storage_errors.DoesNotExist as ex:
             LOG.debug(ex)
             raise wsgi_errors.HTTPNotFound(six.text_type(ex))
@@ -79,11 +88,12 @@ class ItemResource(object):
             # Place JSON size restriction before parsing
             self._validate.queue_metadata_length(req.content_length)
             # Deserialize queue metadata
-            metadata = None
+            metadata = {}
             if req.content_length:
                 document = wsgi_utils.deserialize(req.stream,
                                                   req.content_length)
                 metadata = wsgi_utils.sanitize(document, spec=None)
+            self._init_metadata(metadata)
             self._validate.queue_metadata_putting(metadata)
         except validation.ValidationFailed as ex:
             LOG.debug(ex)

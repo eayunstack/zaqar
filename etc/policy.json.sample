@@ -18,6 +18,9 @@
     "topics:delete": "",
     "topics:update": "",
 
+    "monitors:get_all": "",
+    "monitors:get": "",
+
     "messages:consume": "",
     "messages:publish": "",
     "messages:get_all": "",

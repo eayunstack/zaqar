@@ -38,16 +38,19 @@ class CollectionResource(object):
         '_validate',
         '_message_post_spec',
         '_claim_controller',
+        '_monitor_controller',
     )
 
     def __init__(self, wsgi_conf, validate,
-                 message_controller, queue_controller, claim_controller):
+                 message_controller, queue_controller,
+                 claim_controller, monitor_controller):
 
         self._wsgi_conf = wsgi_conf
         self._validate = validate
         self._message_controller = message_controller
         self._queue_controller = queue_controller
         self._claim_controller = claim_controller
+        self._monitor_controller = monitor_controller
 
     @decorators.TransportLog("Messages consume item")
     @acl.enforce("messages:consume")
@@ -103,6 +106,12 @@ class CollectionResource(object):
             base_path = req.path.rpartition('/')[0]
             resp_msgs = [wsgi_utils.format_message_v1_1(msg, base_path, cid)
                          for msg in resp_msgs]
+
+            try:
+                self._monitor_controller.update(resp_msgs, queue_name,
+                                                project_id, 'consume_messages')
+            except Exception as ex:
+                LOG.exception(ex)
 
             resp.location = req.path + '/' + cid
             resp.body = utils.to_json({'messages': resp_msgs})

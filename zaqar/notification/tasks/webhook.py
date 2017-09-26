@@ -28,7 +28,9 @@ class WebhookTask(object):
         if headers is None:
             headers = {'Content-Type': 'application/json'}
         headers.update(subscription['options'].get('post_headers', {}))
+        monitor_controller = kwargs.get('monitor_controller', None)
         conf = kwargs.get('conf', None)
+        project = kwargs.get('project', None)
 
         @tasks.notifier_retry_policy(conf, messages, subscription)
         def _post_msg():
@@ -48,6 +50,15 @@ class WebhookTask(object):
 
             LOG.debug('Messages: %s publish for Subscription:'
                       '%s Success.' % (messages, subscription))
+
+            try:
+                monitor_controller.update(messages,
+                                          subscription['source'],
+                                          project,
+                                          'subscribe_messages',
+                                          success=True)
+            except Exception as ex:
+                LOG.exception(ex)
 
         _post_msg()
 

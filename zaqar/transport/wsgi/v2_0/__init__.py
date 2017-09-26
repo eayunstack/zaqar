@@ -15,6 +15,7 @@
 from zaqar.common import decorators
 from zaqar.transport.wsgi.v2_0 import claims
 from zaqar.transport.wsgi.v2_0 import flavors
+from zaqar.transport.wsgi.v2_0 import monitors
 from zaqar.transport.wsgi.v2_0 import health
 from zaqar.transport.wsgi.v2_0 import homedoc
 from zaqar.transport.wsgi.v2_0 import messages
@@ -52,6 +53,7 @@ VERSION = {
 def public_endpoints(driver, conf):
     queue_controller = driver._storage.queue_controller
     topic_controller = driver._storage.topic_controller
+    monitor_controller = driver._storage.monitor_controller
     message_controller = driver._storage.message_controller
     claim_controller = driver._storage.claim_controller
     subscription_controller = driver._storage.subscription_controller
@@ -70,7 +72,8 @@ def public_endpoints(driver, conf):
         ('/queues/{queue_name}',
          queues.ItemResource(driver._validate,
                              queue_controller,
-                             message_controller)),
+                             message_controller,
+                             monitor_controller)),
         ('/queues/{queue_name}/stats',
          stats.Resource(queue_controller)),
         ('/queues/{queue_name}/purge',
@@ -83,7 +86,8 @@ def public_endpoints(driver, conf):
         ('/topics/{topic_name}',
          topics.ItemResource(driver._validate,
                              topic_controller,
-                             message_controller)),
+                             message_controller,
+                             monitor_controller)),
 
         # Messages Endpoints
         ('/queues/{queue_name}/messages',
@@ -91,6 +95,7 @@ def public_endpoints(driver, conf):
                                      driver._validate,
                                      message_controller,
                                      queue_controller,
+                                     monitor_controller,
                                      defaults.message_ttl)),
         ('/queues/{queue_name}/messages/{message_id}',
          messages.ItemResource(message_controller)),
@@ -99,6 +104,7 @@ def public_endpoints(driver, conf):
          messages.TopicResource(driver._validate,
                                 message_controller,
                                 topic_controller,
+                                monitor_controller,
                                 defaults.message_ttl)),
 
         ('/queues/{queue_name}/consume',
@@ -106,7 +112,8 @@ def public_endpoints(driver, conf):
                                     driver._validate,
                                     message_controller,
                                     queue_controller,
-                                    claim_controller)),
+                                    claim_controller,
+                                    monitor_controller)),
         ('/queues/{queue_name}/consume/{handle}',
          consume.ItemResource(message_controller)),
 
@@ -123,6 +130,12 @@ def public_endpoints(driver, conf):
                              claim_controller,
                              defaults.claim_ttl,
                              defaults.claim_grace)),
+
+        # Monitor
+        ('/monitors',
+         monitors.CollectionResource(monitor_controller, driver._validate)),
+        ('/monitors/{m_type}/{name}',
+         monitors.ItemResource(monitor_controller)),
 
         # Ping
         ('/ping',

@@ -25,6 +25,7 @@ Field Mappings:
 from zaqar.storage.mongodb import catalogue
 from zaqar.storage.mongodb import claims
 from zaqar.storage.mongodb import flavors
+from zaqar.storage.mongodb import monitors
 from zaqar.storage.mongodb import messages
 from zaqar.storage.mongodb import pools
 from zaqar.storage.mongodb import queues
@@ -41,3 +42,4 @@ QueueController = queues.QueueController
 TopicController = topics.TopicController
 PoolsController = pools.PoolsController
 SubscriptionController = subscriptions.SubscriptionController
+MonitorController = monitors.MonitorController

@@ -324,8 +324,9 @@ class MessageController(storage.Message):
     # "Friends" interface
     # ----------------------------------------------------------------------
 
-    def _count(self, queue_name, project=None, include_claimed=False):
-        """Return total number of messages in a queue.
+    def _count(self, queue_name, project=None,
+               include_claimed=False, include_delay=False):
+        """Return total number of active messages in a queue.
 
         This method is designed to very quickly count the number
         of messages in a given queue. Expired messages are not
@@ -351,6 +352,25 @@ class MessageController(storage.Message):
             # Exclude messages that are claimed
             query['c.e'] = {'$lte': timeutils.utcnow_ts()}
 
+        if not include_delay:
+            # Exclude messages that are delayed
+            query['d.e'] = {'$lte': timeutils.utcnow_ts()}
+
+        collection = self._collection(queue_name, project)
+        return collection.count(filter=query, hint=COUNTING_INDEX_FIELDS)
+
+    def _claimed_or_delay_count(self, queue_name, project=None,
+                                claimed=None, delayed=None):
+        query = {
+            # Messages must belong to this queue and project.
+            PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+            'tx': None,
+        }
+        if claimed:
+            query['c.e'] = {'$gte': timeutils.utcnow_ts()}
+
+        if delayed:
+            query['d.e'] = {'$gte': timeutils.utcnow_ts()}
         collection = self._collection(queue_name, project)
         return collection.count(filter=query, hint=COUNTING_INDEX_FIELDS)
 

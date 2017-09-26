@@ -25,6 +25,7 @@ Claim = base.Claim
 Message = base.Message
 Queue = base.Queue
 Topic = base.Topic
+MonitorBase = base.MonitorBase
 Subscription = base.Subscription
 PoolsBase = base.PoolsBase
 FlavorsBase = base.FlavorsBase

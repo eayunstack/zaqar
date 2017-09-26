@@ -35,6 +35,7 @@ class CollectionResource(object):
     __slots__ = (
         '_message_controller',
         '_queue_controller',
+        '_monitor_controller',
         '_wsgi_conf',
         '_validate',
         '_message_post_spec',
@@ -43,13 +44,14 @@ class CollectionResource(object):
     )
 
     def __init__(self, wsgi_conf, validate,
-                 message_controller, queue_controller,
+                 message_controller, queue_controller, monitor_controller,
                  default_message_ttl, claim_controller=None):
 
         self._wsgi_conf = wsgi_conf
         self._validate = validate
         self._message_controller = message_controller
         self._queue_controller = queue_controller
+        self._monitor_controller = monitor_controller
         self._default_message_ttl = default_message_ttl
         self._claim_controller = claim_controller
 
@@ -237,6 +239,12 @@ class CollectionResource(object):
             description = _(u'Messages could not be enqueued.')
             raise wsgi_errors.HTTPServiceUnavailable(description)
 
+        try:
+            self._monitor_controller.update(messages, queue_name,
+                                            project_id, 'send_messages')
+        except Exception as ex:
+            LOG.exception(ex)
+
         # Prepare the response
         ids_value = ','.join(message_ids)
         resp.location = req.path + '?ids=' + ids_value
@@ -410,17 +418,20 @@ class TopicResource(object):
     __slots__ = (
         '_message_controller',
         '_topic_controller',
+        '_monitor_controller',
         '_validate',
         '_message_post_spec',
         '_default_message_ttl'
     )
 
-    def __init__(self, validate, message_controller, topic_controller,
+    def __init__(self, validate, message_controller,
+                 topic_controller, monitor_controller,
                  default_message_ttl, claim_controller=None):
 
         self._validate = validate
         self._message_controller = message_controller
         self._topic_controller = topic_controller
+        self._monitor_controller = monitor_controller
         self._default_message_ttl = default_message_ttl
         self._message_post_spec = (
             ('ttl', int, self._default_message_ttl),
@@ -493,6 +504,11 @@ class TopicResource(object):
             LOG.exception(ex)
             description = _(u'Messages could not be entopicd.')
             raise wsgi_errors.HTTPServiceUnavailable(description)
+        try:
+            self._monitor_controller.update(messages, topic_name,
+                                            project_id, 'publish_messages')
+        except Exception as ex:
+            LOG.exception(ex)
 
         # Prepare the response
         ids_value = ','.join(message_ids)

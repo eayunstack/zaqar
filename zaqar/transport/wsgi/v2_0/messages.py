@@ -192,7 +192,7 @@ class CollectionResource(object):
             else:
                 message_post_spec = (('ttl', int, self._default_message_ttl),
                                      ('body', '*', None),)
-            if delay_ttl:
+            if delay_ttl is not None:
                 message_post_spec += (('delay_ttl', int, delay_ttl),)
             # Place JSON size restriction before parsing
             self._validate.message_length(req.content_length,

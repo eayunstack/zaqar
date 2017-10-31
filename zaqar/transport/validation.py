@@ -331,7 +331,7 @@ class Validator(object):
             msg = _(u'_default_message_ttl must be integer.')
             raise ValidationFailed(msg)
 
-        if queue_default_ttl:
+        if queue_default_ttl is not None:
             if not (MIN_MESSAGE_TTL <= queue_default_ttl <=
                     self._limits_conf.max_message_ttl):
                 msg = _(u'_default_message_ttl can not exceed {0} '
@@ -344,7 +344,7 @@ class Validator(object):
             msg = _(u'delay_ttl must be integer.')
             raise ValidationFailed(msg)
 
-        if queue_delay_ttl:
+        if queue_delay_ttl is not None:
             if not (MIN_MESSAGE_DELAY_TTL <= queue_delay_ttl <=
                     self._limits_conf.max_message_delay_ttl):
                 msg = _(u'delay_ttl can not exceed {0} '
@@ -358,7 +358,7 @@ class Validator(object):
             msg = _(u'claim_ttl must be integer.')
             raise ValidationFailed(msg)
 
-        if queue_claim_ttl:
+        if queue_claim_ttl is not None:
             if not (MIN_MESSAGE_CLAIM_TTL <= queue_claim_ttl <=
                     self._limits_conf.max_claim_ttl):
                 msg = _(u'claim_ttl can not exceed {0} '
@@ -373,7 +373,7 @@ class Validator(object):
             msg = _(u'_max_messages_post_size must be integer.')
             raise ValidationFailed(msg)
 
-        if queue_max_msg_size:
+        if queue_max_msg_size is not None:
             if not (0 < queue_max_msg_size <=
                     self._limits_conf.max_messages_post_size):
                 raise ValidationFailed(

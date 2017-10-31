@@ -59,7 +59,7 @@ class ItemResource(object):
             'delay_ttl': 'default_delay_ttl'}
 
         for key in default_key.keys():
-            if not metadata.get(key, None):
+            if metadata.get(key, None) is None:
                 metadata[key] = self._validate. \
                     get_limit_conf_value(default_key[key])
 

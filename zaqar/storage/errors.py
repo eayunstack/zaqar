@@ -198,6 +198,14 @@ class MonitorDoesNotExist(DoesNotExist):
         super(MonitorDoesNotExist, self).__init__(monitor=monitor)
 
 
+class MonitorAlreadyExist(ExceptionBase):
+
+    msg_format = u'Monitor {monitor} key already exist'
+
+    def __init__(self, monitor):
+        super(MonitorAlreadyExist, self).__init__(monitor=monitor)
+
+
 class NoPoolFound(ExceptionBase):
 
     msg_format = u'No pools registered'

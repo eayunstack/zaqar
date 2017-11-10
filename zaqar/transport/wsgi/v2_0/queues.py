@@ -114,6 +114,8 @@ class ItemResource(object):
 
         try:
             self._monitor_controller.create(queue_name, 'queues', project_id)
+        except storage_errors.MonitorAlreadyExist as ex:
+            LOG.debug(ex)
         except Exception as ex:
             LOG.exception(ex)
 

@@ -139,6 +139,10 @@ class MonitorController(base.MonitorBase):
     @utils.raises_conn_error
     def create(self, name, m_type, project):
         key = '%s/%s/%s' % (project, m_type, name)
+        one = self._col.find_one({'k': key}, _field_spec())
+        if one:
+            raise errors.MonitorAlreadyExist(key)
+
         self._col.insert({'k': key, 't': m_type, 'p': project,
                           'v': _init_value(m_type)})
 

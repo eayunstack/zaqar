@@ -171,11 +171,9 @@ class CollectionResource(object):
                 queue_meta = self._queue_controller.get_metadata(queue_name,
                                                                  project_id)
             except storage_errors.DoesNotExist as ex:
-                self._validate.queue_identification(queue_name, project_id)
-                self._queue_controller.create(queue_name, project=project_id)
-                # NOTE(flwang): Queue is created in lazy mode, so no metadata
-                # set.
-                queue_meta = {}
+                raise wsgi_errors.HTTPNotFound('Queue %s is not found '
+                                               'in project %s' % (queue_name,
+                                                                  project_id))
 
             queue_max_msg_size = queue_meta.get('_max_messages_post_size',
                                                 None)

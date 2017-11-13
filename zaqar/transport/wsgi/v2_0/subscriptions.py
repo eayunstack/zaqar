@@ -188,9 +188,11 @@ class CollectionResource(object):
         else:
             document = {}
 
+        if not self._topic_controller.exists(topic_name, project_id):
+            raise wsgi_errors.HTTPNotFound('Topic %s is not found '
+                                           'in project %s' % (topic_name,
+                                                              project_id))
         try:
-            if not self._topic_controller.exists(topic_name, project_id):
-                self._topic_controller.create(topic_name, project=project_id)
             self._validate.subscription_posting(document)
             subscriber = document['subscriber']
             options = document.get('options', {})

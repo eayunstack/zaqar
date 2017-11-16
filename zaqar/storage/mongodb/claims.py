@@ -172,9 +172,25 @@ class ClaimController(storage.Claim):
         collection = msg_ctrl._collection(queue, project)
         updated = collection.update({'_id': {'$in': ids},
                                      'c.e': {'$lte': now}},
-                                    {'$set': {'c': meta}},
+                                    {'$set': {'c': meta,
+                                              'cm.nc_t': claim_expires,
+                                              },
+                                     '$inc': {'cm.cc': 1}},
                                     upsert=False,
                                     multi=True)['n']
+
+        collection.update({'_id': {'$in': ids},
+                           'c.id': oid,
+                           'cm.fc_t': {'$exists': False}},
+                          {'$set': {'cm.fc_t': now}},
+                          upsert=False, multi=True)
+
+        for _id in ids:
+            collection.update({'_id': _id, 'c.id': oid},
+                              {'$set': {
+                               'c_id': objectid.ObjectId()}},
+                              upsert=False,
+                              multi=False)
 
         # NOTE(flaper87): Dirty hack!
         # This sets the expiration time to
@@ -188,23 +204,6 @@ class ClaimController(storage.Claim):
                            'c.id': oid},
                           {'$set': new_values},
                           upsert=False, multi=True)
-
-        for _id in ids:
-            msg = msg_ctrl.get(queue, str(_id), project=project)
-            cm = {
-                'cc': msg['consume_count'] + 1,
-                'nc_t': claim_expires,
-                'fc_t': msg.get('first_consumed_at', None)
-            }
-            if not cm['fc_t']:
-                cm['fc_t'] = now
-
-            collection.update({'_id': _id},
-                              {'$set': {
-                               'c_id': objectid.ObjectId(),
-                               'cm': cm}},
-                              upsert=False,
-                              multi=False)
 
         if updated != 0:
             # NOTE(kgriffs): This extra step is necessary because

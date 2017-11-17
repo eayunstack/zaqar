@@ -58,6 +58,9 @@ class QueueTask(object):
                 monitor_controller.update(messages, subscription['source'],
                                           project_id, 'subscribe_messages',
                                           success=True)
+
+                monitor_controller.update(messages, queue_name,
+                                          project_id, 'send_messages')
             except Exception as ex:
                 LOG.exception(ex)
 

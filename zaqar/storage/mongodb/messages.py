@@ -274,6 +274,7 @@ class MessageController(storage.Message):
                              u'or -1 (descending)')
 
         now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
 
         query = {
             # Messages must belong to this queue and project.
@@ -285,6 +286,11 @@ class MessageController(storage.Message):
             # See also the note wrt 'tx' within the definition
             # of ACTIVE_INDEX_FIELDS.
             'tx': None,
+            # NOTE(cdyangzhenyu): Due to mongo delete expired data up to
+            # 60 seconds delay. In order to solve this problem, the
+            # filter of expired time has been added here. There will be
+            # a little performance impact.
+            'e': {'$gt': now_dt},
         }
 
         if not echo:
@@ -336,6 +342,8 @@ class MessageController(storage.Message):
         Note: Some expired messages may be included in the count if
             they haven't been GC'd yet. This is done for performance.
         """
+        now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
         query = {
             # Messages must belong to this queue and project.
             PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
@@ -346,6 +354,7 @@ class MessageController(storage.Message):
             # See also the note wrt 'tx' within the definition
             # of ACTIVE_INDEX_FIELDS.
             'tx': None,
+            'e': {'$gt': now_dt},
         }
 
         if not include_claimed:
@@ -361,10 +370,13 @@ class MessageController(storage.Message):
 
     def _claimed_or_delay_count(self, queue_name, project=None,
                                 claimed=None, delayed=None):
+        now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
         query = {
             # Messages must belong to this queue and project.
             PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
             'tx': None,
+            'e': {'$gt': now_dt},
         }
         if claimed:
             query['c.e'] = {'$gte': timeutils.utcnow_ts()}
@@ -389,10 +401,13 @@ class MessageController(storage.Message):
         if claim_id is None:
             claim_id = {'$ne': None}
 
+        now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
         query = {
             PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
             'c.id': claim_id,
             'c.e': {'$gt': expires or timeutils.utcnow_ts()},
+            'e': {'$gt': now_dt},
         }
 
         kwargs = {}
@@ -409,8 +424,6 @@ class MessageController(storage.Message):
 
         if limit is not None:
             msgs = msgs.limit(limit)
-
-        now = timeutils.utcnow_ts()
 
         def denormalizer(msg):
             doc = _basic_message(msg, now)
@@ -607,10 +620,12 @@ class MessageController(storage.Message):
                                              project)
 
         now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
 
         query = {
             '_id': mid,
             PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+            'e': {'$gt': now_dt},
         }
 
         collection = self._collection(queue_name, project)
@@ -631,11 +646,13 @@ class MessageController(storage.Message):
             return iter([])
 
         now = timeutils.utcnow_ts()
+        now_dt = datetime.datetime.utcfromtimestamp(now)
 
         # Base query, always check expire time
         query = {
             '_id': {'$in': message_ids},
             PROJ_QUEUE: utils.scope_queue_name(queue_name, project),
+            'e': {'$gt': now_dt},
         }
 
         collection = self._collection(queue_name, project)

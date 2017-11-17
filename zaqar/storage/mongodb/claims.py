@@ -125,7 +125,6 @@ class ClaimController(storage.Claim):
         time being, to execute an update on a limited number of records.
         """
         msg_ctrl = self.driver.message_controller
-        queue_ctrl = self.driver.queue_controller
 
         ttl = metadata['ttl']
         grace = metadata['grace']
@@ -196,8 +195,6 @@ class ClaimController(storage.Claim):
         # This sets the expiration time to
         # `expires` on messages that would
         # expire before claim.
-        queue_meta = queue_ctrl.get(queue, project=project)['queue']['metadata']
-        message_ttl += queue_meta.get('_default_message_ttl', 0)
         new_values = {'e': message_expiration, 't': message_ttl}
         collection.update({'p_q': utils.scope_queue_name(queue, project),
                            'e': {'$lt': claim_expires_dt},

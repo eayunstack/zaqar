@@ -169,11 +169,23 @@ class ClaimController(storage.Claim):
         # posted. There is no need to check whether
         # 'c' exists or 'c.id' is None.
         collection = msg_ctrl._collection(queue, project)
-        updated = collection.update({'_id': {'$in': ids},
-                                     'c.e': {'$lte': now}},
-                                    {'$set': {'c': meta}},
-                                    upsert=False,
-                                    multi=True)['n']
+        updated_count = 0
+        for _id in ids:
+            update = collection.update({'_id': _id,
+                                        'c.e': {'$lte': now}},
+                                       {'$set': {'c': meta,
+                                                 'cm.nc_t': claim_expires,
+                                                 'c_id': objectid.ObjectId()},
+                                        '$inc': {'cm.cc': 1}},
+                                       upsert=False)
+            if update['updatedExisting']:
+                updated_count += 1
+
+        collection.update({'_id': {'$in': ids},
+                           'c.id': oid,
+                           'cm.fc_t': {'$exists': False}},
+                          {'$set': {'cm.fc_t': now}},
+                          upsert=False, multi=True)
 
         # NOTE(flaper87): Dirty hack!
         # This sets the expiration time to
@@ -185,25 +197,7 @@ class ClaimController(storage.Claim):
                            'c.id': oid},
                           {'$set': new_values},
                           upsert=False, multi=True)
-
-        for _id in ids:
-            msg = msg_ctrl.get(queue, str(_id), project=project)
-            cm = {
-                'cc': msg['consume_count'] + 1,
-                'nc_t': claim_expires,
-                'fc_t': msg.get('first_consumed_at', None)
-            }
-            if not cm['fc_t']:
-                cm['fc_t'] = now
-
-            collection.update({'_id': _id},
-                              {'$set': {
-                               'c_id': objectid.ObjectId(),
-                               'cm': cm}},
-                              upsert=False,
-                              multi=False)
-
-        if updated != 0:
+        if updated_count:
             # NOTE(kgriffs): This extra step is necessary because
             # in between having gotten a list of active messages
             # and updating them, some of them may have been

@@ -58,7 +58,7 @@ class ItemResource(object):
             '_default_message_ttl': 'default_topic_message_ttl'}
 
         for key in default_key.keys():
-            if not metadata.get(key, None):
+            if key not in metadata:
                 metadata[key] = self._validate. \
                     get_limit_conf_value(default_key[key])
 
@@ -180,6 +180,8 @@ class ItemResource(object):
                 change_method_name = '_do_%s' % change['op']
                 change_method = getattr(self, change_method_name)
                 change_method(req, metadata, reserved_metadata, change)
+
+            self._validate.queue_metadata_putting(metadata)
 
             self._topic_controller.set_metadata(topic_name,
                                                 metadata,

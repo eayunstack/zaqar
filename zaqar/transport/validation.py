@@ -420,7 +420,7 @@ class Validator(object):
         if content_length is None:
             return
 
-        if max_msg_post_size:
+        if max_msg_post_size is not None:
             try:
                 min_max_size = min(max_msg_post_size,
                                    self._limits_conf.max_messages_post_size)
